@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Settings · {{ app_name }}{% endblock %}
+{% block content %}
+<section class="page">
+  <p class="eyebrow">Account</p>
+  <h1>Settings</h1>
+  <p class="lede">{{ user.name }} · {{ user.email }}</p>
+
+  {% if rotated %}
+  <p class="banner warn">Your token was rotated. Open the shortcut and update the Token import value or the token form field. Do not re-import unless you want to. The old token is dead.</p>
+  {% endif %}
+
+  <div class="cta-row">
+    {% if shortcut_icloud_url %}
+    <a class="btn primary" href="{{ shortcut_icloud_url }}" target="_blank" rel="noopener">Add iPhone Shortcut</a>
+    {% else %}
+    <span class="btn primary disabled">Add iPhone Shortcut</span>
+    {% endif %}
+    {% if shortcut_import_url %}
+    <a class="btn ghost" href="{{ shortcut_import_url }}">Add via shortcuts://</a>
+    {% endif %}
+  </div>
+
+  <div class="copy-grid">
+    <div class="copy-card">
+      <span class="label">Ingest URL</span>
+      <code id="ingest-url">{{ ingest_url }}</code>
+      <button class="btn tiny" type="button" data-copy="#ingest-url">Copy</button>
+    </div>
+    <div class="copy-card">
+      <span class="label">Token</span>
+      <code id="api-token">{{ user.api_token }}</code>
+      <button class="btn tiny" type="button" data-copy="#api-token">Copy</button>
+    </div>
+  </div>
+
+  <form class="danger-form" method="post" action="/settings/token/rotate" onsubmit="return confirm('Rotate this token? The old token dies immediately and the iPhone shortcut will 401 until you paste the new one.');">
+    <input type="hidden" name="next" value="/settings">
+    <button class="btn danger" type="submit">Rotate token</button>
+    <p class="hint">Treat this like a password. Phone cannot do SSO; the token is your user tag on every ingest.</p>
+  </form>
+
+  <p class="meta">
+    {% if user.last_ingest_ok_at %}
+    Last ingest OK: {{ user.last_ingest_ok_at.strftime("%Y-%m-%d %H:%M UTC") }}
+    {% else %}
+    No successful ingest yet.
+    {% endif %}
+  </p>
+</section>
+{% endblock %}

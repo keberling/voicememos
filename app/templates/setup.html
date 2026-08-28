@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Connect your iPhone · {{ app_name }}{% endblock %}
+{% block content %}
+<section class="page">
+  <p class="eyebrow">Setup</p>
+  <h1>Connect your iPhone</h1>
+  <p class="lede">Tap Add iPhone Shortcut. When Shortcuts asks for Ingest URL and Token, paste the two values from this page, save, then Settings → Action Button → Shortcut → Voice Dump. Press Action Button, talk, tap to stop.</p>
+
+  {% if rotated %}
+  <p class="banner warn">Your token was rotated. Open the shortcut and update the Token import value or the token form field. Do not re-import unless you want to.</p>
+  {% endif %}
+
+  <div class="cta-row">
+    {% if shortcut_icloud_url %}
+    <a class="btn primary xl" href="{{ shortcut_icloud_url }}" target="_blank" rel="noopener">Add iPhone Shortcut</a>
+    {% else %}
+    <span class="btn primary xl disabled" title="Set SHORTCUT_ICLOUD_URL">Add iPhone Shortcut</span>
+    {% endif %}
+    {% if shortcut_import_url %}
+    <a class="btn ghost xl" href="{{ shortcut_import_url }}">Add via shortcuts://</a>
+    {% endif %}
+  </div>
+  {% if not shortcut_icloud_url %}
+  <p class="hint">Set <code>SHORTCUT_ICLOUD_URL</code> to the iCloud share link for the template shortcut. Optional <code>SHORTCUT_FILE_URL</code> enables the shortcuts:// import button.</p>
+  {% endif %}
+
+  <div class="copy-grid">
+    <div class="copy-card">
+      <span class="label">Ingest URL</span>
+      <code id="ingest-url">{{ ingest_url }}</code>
+      <button class="btn tiny" type="button" data-copy="#ingest-url">Copy</button>
+    </div>
+    <div class="copy-card">
+      <span class="label">Token</span>
+      <code id="api-token">{{ user.api_token }}</code>
+      <button class="btn tiny" type="button" data-copy="#api-token">Copy</button>
+    </div>
+  </div>
+
+  <p class="meta">
+    {% if user.last_ingest_ok_at %}
+    Last ingest OK: <time datetime="{{ user.last_ingest_ok_at.isoformat() }}">{{ user.last_ingest_ok_at.strftime("%Y-%m-%d %H:%M UTC") }}</time>
+    {% else %}
+    No successful ingest yet. After the first dump processes, you will land on Notes automatically.
+    {% endif %}
+  </p>
+
+  <details class="manual">
+    <summary>Build it yourself in Shortcuts</summary>
+    <ol>
+      <li>Open Shortcuts. Tap +. Name it Voice Dump.</li>
+      <li>Add Record Audio. Stop Recording: On Tap. Do not save to Photos.</li>
+      <li>Add Get Contents of URL. URL = ingest URL. Method POST. Body Form. file = Recorded Audio. token = their token. source = ios-shortcut.</li>
+      <li>Show Notification from the JSON title and status.</li>
+      <li>Settings, Action Button, that shortcut.</li>
+    </ol>
+    <p>Use Shortcuts Import Questions for Ingest URL and Token so those values are filled on install. A second optional shortcut, Process Voice Memo, can receive Audio from the Share Sheet and POST the same way with file = Shortcut Input.</p>
+  </details>
+
+  <section class="trouble">
+    <h2>Troubleshoot</h2>
+    <ul>
+      <li><strong>401</strong> — bad or stale token. Copy the token on this page and update it in the shortcut.</li>
+      <li><strong>413</strong> — recording is too big. Talk shorter, or raise <code>MAX_UPLOAD_MB</code>.</li>
+      <li><strong>error</strong> status on a note — open it and tap Retry. Audio and transcript are kept.</li>
+    </ul>
+  </section>
+</section>
+{% endblock %}

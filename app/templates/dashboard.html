@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Notes · {{ app_name }}{% endblock %}
+{% block content %}
+<section class="page">
+  <div class="page-head">
+    <div>
+      <p class="eyebrow">Inbox</p>
+      <h1>Notes</h1>
+    </div>
+    <form class="search" method="get" action="/">
+      <input type="search" name="q" value="{{ q }}" placeholder="Search full text" aria-label="Search full text">
+      {% if active_tag %}<input type="hidden" name="tag" value="{{ active_tag }}">{% endif %}
+      {% if active_category %}<input type="hidden" name="category" value="{{ active_category }}">{% endif %}
+      <button class="btn" type="submit">Search</button>
+    </form>
+  </div>
+
+  {% if all_categories or all_tags %}
+  <div class="filters">
+    <div class="chip-row">
+      <span class="label">Categories</span>
+      <a class="chip {% if not active_category %}on{% endif %}" href="/{{ filter_qs(q=q, tag=active_tag) }}">All</a>
+      {% for cat in all_categories %}
+      <a class="chip {% if active_category == cat %}on{% endif %}" href="/{{ filter_qs(q=q, tag=active_tag, category=cat) }}">{{ cat }}</a>
+      {% endfor %}
+    </div>
+    <div class="chip-row">
+      <span class="label">Tags</span>
+      <a class="chip {% if not active_tag %}on{% endif %}" href="/{{ filter_qs(q=q, category=active_category) }}">All</a>
+      {% for t in all_tags %}
+      <a class="chip {% if active_tag == t %}on{% endif %}" href="/{{ filter_qs(q=q, tag=t, category=active_category) }}">{{ t }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not notes %}
+  <div class="empty">
+    <h2>No notes yet</h2>
+    <p>Press the Action Button, talk, tap to stop. Every dump is stored — lists, jobs, family, half-baked thoughts, all of it.</p>
+    <a class="btn primary" href="/setup">Connect your iPhone</a>
+  </div>
+  {% else %}
+  <div class="grid">
+    {% for note in notes %}
+    <a class="card" href="/notes/{{ note.id }}">
+      <div class="card-top">
+        <h2>{{ note.title }}</h2>
+        <span class="status {{ note.status }}">{{ note.status }}</span>
+      </div>
+      {% if note.updated_from_voice %}
+      <p class="voice-flag">Updated from voice</p>
+      {% endif %}
+      {% if note.summary %}
+      <p class="summary">{{ note.summary }}</p>
+      {% elif note.transcript %}
+      <p class="summary">{{ note.transcript[:180] }}{% if note.transcript|length > 180 %}…{% endif %}</p>
+      {% endif %}
+      <div class="chips">
+        {% for cat in note.categories %}
+        <span class="chip cat">{{ cat }}</span>
+        {% endfor %}
+        {% for t in note.tags %}
+        <span class="chip tag">{{ t }}</span>
+        {% endfor %}
+      </div>
+      <p class="when">{{ note.updated_at.strftime("%Y-%m-%d %H:%M") }}</p>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,16 @@
+services:
+  voiceportal:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/voiceportal.db}
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - voiceportal-data:/data
+    restart: unless-stopped
+
+volumes:
+  voiceportal-data:

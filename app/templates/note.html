@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}{{ note.title }} · {{ app_name }}{% endblock %}
+{% block content %}
+<article class="page note">
+  <p class="crumb"><a href="/">Notes</a></p>
+  <div class="page-head">
+    <div>
+      <h1>{{ note.title }}</h1>
+      <p class="meta">
+        <span class="status {{ note.status }}">{{ note.status }}</span>
+        {% if note.updated_from_voice %}<span class="voice-flag">Updated from voice</span>{% endif %}
+        · {{ note.updated_at.strftime("%Y-%m-%d %H:%M UTC") }}
+      </p>
+    </div>
+    <div class="actions">
+      {% if note.status != "merged" %}
+      <form method="post" action="/notes/{{ note.id }}/retry">
+        <button class="btn primary" type="submit">Retry</button>
+      </form>
+      {% endif %}
+      <form method="post" action="/notes/{{ note.id }}/delete" onsubmit="return confirm('Delete this note and its audio?');">
+        <button class="btn danger" type="submit">Delete</button>
+      </form>
+    </div>
+  </div>
+
+  {% if note.error %}
+  <p class="banner error">{{ note.error }}</p>
+  {% endif %}
+  {% if note.warning %}
+  <p class="banner warn">{{ note.warning }}</p>
+  {% endif %}
+  {% if note.status == "merged" and merged_into %}
+  <p class="banner">This dump was merged into <a href="/notes/{{ merged_into.id }}">{{ merged_into.title }}</a>.</p>
+  {% endif %}
+
+  <div class="chips">
+    {% for cat in note.categories %}<span class="chip cat">{{ cat }}</span>{% endfor %}
+    {% for t in note.tags %}<span class="chip tag">{{ t }}</span>{% endfor %}
+  </div>
+
+  {% if note.summary %}
+  <section>
+    <h2>Summary</h2>
+    <p>{{ note.summary }}</p>
+  </section>
+  {% endif %}
+
+  {% if note.lists %}
+  <section>
+    <h2>Lists</h2>
+    {% for name, items in note.lists.items() %}
+    <div class="named-list">
+      <h3>{{ name }}</h3>
+      <ul>
+        {% for item in items %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if note.action_items %}
+  <section>
+    <h2>Action items</h2>
+    <ul class="checks" data-note-id="{{ note.id }}">
+      {% for item in note.action_items %}
+      <li>
+        <label>
+          <input type="checkbox" data-index="{{ loop.index0 }}" {% if item.checked %}checked{% endif %}>
+          <span>{{ item.text }}</span>
+          {% if item.due %}<span class="pill">{{ item.due }}</span>{% endif %}
+          {% if item.project %}<span class="pill">{{ item.project }}</span>{% endif %}
+        </label>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if note.ideas %}
+  <section>
+    <h2>Ideas</h2>
+    <ul>
+      {% for idea in note.ideas %}
+      <li>{{ idea }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if note.entities %}
+  <section>
+    <h2>Entities</h2>
+    <dl class="ents">
+      {% for key, values in note.entities.items() %}
+        {% if values %}
+        <dt>{{ key }}</dt>
+        <dd>{{ values | join(", ") if values is iterable and values is not string else values }}</dd>
+        {% endif %}
+      {% endfor %}
+    </dl>
+  </section>
+  {% endif %}
+
+  {% if note.filename %}
+  <section>
+    <h2>Audio</h2>
+    <audio controls preload="none" src="/api/v1/notes/{{ note.id }}/audio"></audio>
+  </section>
+  {% endif %}
+
+  {% if note.transcript %}
+  <section>
+    <h2>Transcript</h2>
+    <pre class="transcript">{{ note.transcript }}</pre>
+  </section>
+  {% endif %}
+
+  {% if note.merge_events %}
+  <section>
+    <h2>Merge history</h2>
+    <ol class="history">
+      {% for ev in note.merge_events %}
+      <li>
+        <p class="when">{{ ev.created_at.strftime("%Y-%m-%d %H:%M UTC") }} · {{ ev.source }}</p>
+        {% if ev.excerpt %}<p>{{ ev.excerpt }}</p>{% endif %}
+        {% if ev.source_note_id %}<p><a href="/notes/{{ ev.source_note_id }}">Source dump</a></p>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+  {% endif %}
+</article>
+{% endblock %}
