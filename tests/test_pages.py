@@ -24,11 +24,22 @@ def test_setup_page_shows_url_and_token(client, user_a):
     assert "Retry" in r.text
 
 
-def test_first_login_redirects_to_setup(client, user_a):
+def test_notes_available_before_first_success(client, user_a):
     login(client, user_a)
     r = client.get("/", follow_redirects=False)
-    assert r.status_code == 302
-    assert r.headers["location"] == "/setup"
+    assert r.status_code == 200
+    assert "Notes" in r.text
+    assert "No notes yet" in r.text
+
+
+def test_queued_note_shows_on_dashboard(client, db, user_a):
+    make_note(db, user_a, title="Incoming dump", status="queued", transcript=None, summary=None)
+    login(client, user_a)
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "Incoming dump" in r.text
+    assert "queued" in r.text
+    assert "data-live-notes" in r.text
 
 
 def test_dashboard_after_ingest(client, db, user_a):

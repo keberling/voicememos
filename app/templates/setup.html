@@ -41,10 +41,17 @@
   </div>
 
   <p class="meta">
-    {% if user.last_ingest_ok_at %}
+    {% if latest_note %}
+    Latest dump: <a href="/notes/{{ latest_note.id }}">{{ latest_note.title }}</a>
+    — <span class="status {{ latest_note.status }}">{{ latest_note.status }}</span>
+    at {{ latest_note.created_at.strftime("%Y-%m-%d %H:%M UTC") }}.
+    {% if latest_note.status in ['queued', 'transcribing', 'structuring'] %}
+    Processing now — stay on Notes to watch it.
+    {% endif %}
+    {% elif user.last_ingest_ok_at %}
     Last ingest OK: <time datetime="{{ user.last_ingest_ok_at.isoformat() }}">{{ user.last_ingest_ok_at.strftime("%Y-%m-%d %H:%M UTC") }}</time>
     {% else %}
-    No successful ingest yet. After the first dump processes, you will land on Notes automatically.
+    No dumps received yet. After you send one, a toast appears here and the note shows on Notes even while it is still queued.
     {% endif %}
   </p>
 

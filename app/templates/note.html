@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ note.title }} · {{ app_name }}{% endblock %}
 {% block content %}
-<article class="page note">
+<article class="page note" data-live-note="{{ note.id }}" data-live-status="{{ note.status }}">
   <p class="crumb"><a href="/">Notes</a></p>
   <div class="page-head">
     <div>
@@ -24,6 +24,9 @@
     </div>
   </div>
 
+  {% if note.status in ['queued', 'transcribing', 'structuring'] %}
+  <p class="banner" id="live-note-banner">Working — {{ note.status }}. This page updates on its own.</p>
+  {% endif %}
   {% if note.error %}
   <p class="banner error">{{ note.error }}</p>
   {% endif %}

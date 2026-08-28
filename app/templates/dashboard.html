@@ -1,7 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Notes · {{ app_name }}{% endblock %}
 {% block content %}
-<section class="page">
+<section class="page" data-live-notes="1">
+  <div id="activity" class="activity" {% if not in_flight %}hidden{% endif %}>
+    {% if in_flight %}
+      {% for n in in_flight %}
+      <a href="/notes/{{ n.id }}">{{ n.title }} — {{ n.status }}</a>
+      {% endfor %}
+    {% endif %}
+  </div>
   <div class="page-head">
     <div>
       <p class="eyebrow">Inbox</p>
@@ -43,7 +50,7 @@
   {% else %}
   <div class="grid">
     {% for note in notes %}
-    <a class="card" href="/notes/{{ note.id }}">
+    <a class="card {% if note.status in ['queued', 'transcribing', 'structuring'] %}busy{% endif %}" href="/notes/{{ note.id }}">
       <div class="card-top">
         <h2>{{ note.title }}</h2>
         <span class="status {{ note.status }}">{{ note.status }}</span>

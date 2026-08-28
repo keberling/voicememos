@@ -17,7 +17,7 @@
       <span>{{ app_name }}</span>
     </a>
     <nav>
-      <a href="/" class="{% if nav == 'notes' %}active{% endif %}">Notes</a>
+      <a href="/" class="{% if nav == 'notes' %}active{% endif %}">Notes <span id="live-badge" class="live-badge" hidden></span></a>
       <a href="/setup" class="{% if nav == 'setup' %}active{% endif %}">Setup</a>
       <a href="/settings" class="{% if nav == 'settings' %}active{% endif %}">Settings</a>
     </nav>
@@ -30,6 +30,7 @@
   <main class="{% block main_class %}{% endblock %}">
     {% block content %}{% endblock %}
   </main>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
   <script src="/static/app.js"></script>
   {% block scripts %}{% endblock %}
 </body>

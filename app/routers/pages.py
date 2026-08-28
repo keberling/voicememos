@@ -12,7 +12,7 @@ from app.auth import current_user_id
 from app.config import get_settings
 from app.db import get_db
 from app.deps import get_html_user
-from app.models import User, new_api_token, utcnow
+from app.models import Note, User, new_api_token, utcnow
 from app.notes_query import collect_filters, get_owned_note, search_notes, user_notes_query
 from app.serialize import note_to_out
 
@@ -40,16 +40,13 @@ def _ctx(request: Request, user: User | None = None, **extra):
     return data
 
 
-def _require_setup_redirect(user: User, path: str) -> RedirectResponse | None:
-    if user.last_ingest_ok_at is None and path not in {"/setup", "/settings"}:
-        if not path.startswith("/notes/") and path != "/":
-            return None
-        if path == "/setup":
-            return None
-        # First thing after login if they have no successful ingest yet.
-        if path in {"/", "/notes"}:
-            return RedirectResponse("/setup", status_code=302)
-    return None
+def _latest_note(db: Session, user_id: str) -> Note | None:
+    return (
+        db.query(Note)
+        .filter(Note.user_id == user_id)
+        .order_by(Note.created_at.desc())
+        .first()
+    )
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -58,8 +55,7 @@ async def login_page(request: Request, error: str | None = None, db: Session = D
     if uid:
         user = db.query(User).filter(User.id == uid).one_or_none()
         if user:
-            target = "/setup" if user.last_ingest_ok_at is None else "/"
-            return RedirectResponse(target, status_code=302)
+            return RedirectResponse("/", status_code=302)
     messages = {
         "entra": "Microsoft sign-in is not configured. Set AZURE_AD_CLIENT_ID, AZURE_AD_CLIENT_SECRET, and AZURE_AD_TENANT_ID.",
         "oauth": "Microsoft sign-in failed. Try again.",
@@ -88,9 +84,6 @@ async def dashboard(
     user: User = Depends(get_html_user),
     db: Session = Depends(get_db),
 ):
-    redirect = _require_setup_redirect(user, "/")
-    if redirect:
-        return redirect
     notes = search_notes(db, user.id, q=q, tag=tag, category=category, include_merged=False)
     all_notes = user_notes_query(db, user.id, include_merged=False).all()
     tags, cats = collect_filters(all_notes)
@@ -106,7 +99,13 @@ async def dashboard(
             active_category=category or "",
             all_tags=tags,
             all_categories=cats,
+            in_flight=[
+                note_to_out(n)
+                for n in all_notes
+                if n.status in {"queued", "transcribing", "structuring"}
+            ],
             nav="notes",
+            live_notes=True,
         ),
     )
 
@@ -116,7 +115,9 @@ async def setup_page(
     request: Request,
     rotated: str | None = None,
     user: User = Depends(get_html_user),
+    db: Session = Depends(get_db),
 ):
+    latest = _latest_note(db, user.id)
     return templates.TemplateResponse(
         request,
         "setup.html",
@@ -125,6 +126,7 @@ async def setup_page(
             user,
             rotated=rotated == "1",
             nav="setup",
+            latest_note=note_to_out(latest) if latest else None,
         ),
     )
 

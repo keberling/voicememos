@@ -17,6 +17,7 @@ from app.auth import (
 )
 from app.config import get_settings
 from app.db import get_db
+from app.models import Note
 
 log = logging.getLogger("voiceportal.auth")
 router = APIRouter(tags=["auth"])
@@ -66,7 +67,8 @@ async def callback(request: Request, db: Session = Depends(get_db)):
 
     db.commit()
     login_user(request, user)
-    if user.last_ingest_ok_at is None:
+    has_notes = db.query(Note.id).filter(Note.user_id == user.id).first() is not None
+    if not has_notes:
         return RedirectResponse("/setup", status_code=302)
     return RedirectResponse("/", status_code=302)
 
