@@ -69,7 +69,7 @@ Sessions are cookies. Logout clears the cookie.
 
 Phones cannot do SSO. After login, each user gets `vnp_xxxxxxxx`. That token **is** the user tag. Copy it from Setup or Settings. Rotate from Settings; the old token dies.
 
-Do not generate a unique signed `.shortcut` per user. See [`shortcuts/README.md`](shortcuts/README.md).
+The app hosts the shared template at `{APP_BASE_URL}/shortcuts/Voice-Dump.shortcut`. See [`shortcuts/README.md`](shortcuts/README.md). iOS Shortcuts cannot put Recorded Audio into a Form text field — use Request Body: **File** and `Authorization: Bearer {token}`.
 
 Setup page is the first thing after login if there is no successful ingest yet, and stays in the nav as **Setup**.
 
@@ -77,7 +77,9 @@ Ingest:
 
 ```
 POST {APP_BASE_URL}/api/v1/ingest
-multipart: file (audio), token (or Bearer), tags optional, title optional, source optional
+multipart file=  OR  raw audio body (Shortcuts Request Body: File)
+token: form, query, or Authorization: Bearer
+tags, title, source optional
 → 202 { id, status: "queued", title }
 ```
 

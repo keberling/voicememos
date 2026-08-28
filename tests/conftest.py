@@ -27,6 +27,7 @@ os.environ.update(
         "AZURE_AD_TENANT_ID": "common",
         "SHORTCUT_ICLOUD_URL": "https://www.icloud.com/shortcuts/abc123",
         "SHORTCUT_FILE_URL": "https://example.com/VoiceDump.shortcut",
+        "SIGN_SHORTCUTS": "false",
         "ALLOWED_EMAILS": "",
     }
 )

@@ -14,7 +14,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.auth import configure_oauth
 from app.config import get_settings
 from app.db import init_db
-from app.routers import auth, ingest, me, notes, pages
+from app.routers import auth, ingest, me, notes, pages, shortcuts
 from app.worker import reset_stuck_notes, worker_loop
 from app.db import SessionLocal
 
@@ -70,6 +70,7 @@ app.include_router(auth.router)
 app.include_router(ingest.router)
 app.include_router(me.router)
 app.include_router(notes.router)
+app.include_router(shortcuts.router)
 
 
 @app.get("/health")

@@ -48,6 +48,29 @@ def test_ingest_accepts_bearer(client, user_a):
     assert r.status_code == 202
 
 
+def test_ingest_accepts_raw_audio_body(client, user_a):
+    """Shortcuts Request Body: File sends the recording as the raw POST body."""
+    r = client.post(
+        "/api/v1/ingest",
+        content=b"raw-m4a-bytes",
+        headers={
+            "Authorization": f"Bearer {user_a.api_token}",
+            "Content-Type": "audio/mp4",
+        },
+    )
+    assert r.status_code == 202
+    assert r.json()["status"] == "queued"
+
+
+def test_ingest_accepts_query_token_with_raw_body(client, user_a):
+    r = client.post(
+        f"/api/v1/ingest?token={user_a.api_token}&source=ios-shortcut",
+        content=b"raw-m4a-bytes",
+        headers={"Content-Type": "audio/x-m4a"},
+    )
+    assert r.status_code == 202
+
+
 def test_ingest_413(client, user_a):
     huge = b"x" * (3 * 1024 * 1024)
     r = client.post(

@@ -30,8 +30,10 @@ def _ctx(request: Request, user: User | None = None, **extra):
         "settings": settings,
         "ingest_url": settings.ingest_url,
         "shortcut_icloud_url": settings.SHORTCUT_ICLOUD_URL,
-        "shortcut_file_url": settings.SHORTCUT_FILE_URL,
+        "shortcut_file_url": settings.shortcut_file_url,
+        "shortcut_add_url": settings.shortcut_add_url,
         "shortcut_import_url": settings.shortcut_import_url,
+        "share_sheet_shortcut_url": settings.hosted_share_sheet_shortcut_url,
         "nav": extra.pop("nav", ""),
     }
     data.update(extra)

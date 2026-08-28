@@ -1,32 +1,32 @@
 # iOS shortcut templates
 
-Voice Portal does **not** generate a unique signed `.shortcut` file per user. iOS requires Apple-signed shortcut files, which is a Mac signing problem.
+Voice Portal hosts the template at `{APP_BASE_URL}/shortcuts/Voice-Dump.shortcut`.
 
-Use **one shared template** for everyone. Each user pastes their own Ingest URL and token at import time via Shortcuts Import Questions.
+We cannot mint `https://www.icloud.com/shortcuts/…` from the server. That link is created only after someone imports the shortcut on an iPhone and taps Share → Copy iCloud Link. Put that in `SHORTCUT_ICLOUD_URL` for a one-tap Add button.
+
+## Why not Form body?
+
+Shortcuts **Form** fields are text. **Recorded Audio** is a file, so the variable picker will not let you drop the recording into `file = Recorded Audio`.
+
+Use **Request Body: File** and put the token in a header.
 
 ## Voice Dump (Action Button)
 
-Build once on an iPhone, share via iCloud, set `SHORTCUT_ICLOUD_URL` to that share link.
-
-Required actions:
-
-1. **Record Audio** — Stop Recording: On Tap. Do not save to Photos.
+1. **Record Audio** — Start: Immediately. Finish: On Tap. Do not save to Photos.
 2. **Get Contents of URL**
-   - URL = Import Question **Ingest URL** (example `https://your.app/api/v1/ingest`)
+   - URL = Import Question **Ingest URL**
    - Method `POST`
-   - Body `Form`
-   - `file` = Recorded Audio
-   - `token` = Import Question **Token** (`vnp_…`)
-   - `source` = `ios-shortcut`
-   - `tags` optional
-3. **Show Notification** using the JSON `title` and `status` from the response.
+   - Headers: `Authorization` = `Bearer ` + Import Question **Token**
+   - Request Body: **File**
+   - File = Recorded Audio
+3. **Get Dictionary Value** `title`, **Get Dictionary Value** `status`, **Show Notification**.
 
 Then: Settings → Action Button → Shortcut → Voice Dump.
 
-## Process Voice Memo (optional Share Sheet)
+## Process Voice Memo (Share Sheet)
 
-Same POST. `file` = Shortcut Input (Audio). Same token and ingest URL import questions.
+Same POST. File = Shortcut Input (Audio). Same Ingest URL and Token import questions.
 
 ## After token rotate
 
-Do **not** re-import unless you want to. Open the shortcut and update the Token import value or the token form field. The old token dies immediately.
+Do **not** re-import unless you want to. Open the shortcut and update the Token import value or the Authorization header. The old token dies immediately.

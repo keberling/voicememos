@@ -27,6 +27,8 @@ class Settings(BaseSettings):
 
     SHORTCUT_ICLOUD_URL: str = ""
     SHORTCUT_FILE_URL: str = ""
+    SIGN_SHORTCUTS: bool = True
+    HUBSIGN_URL: str = "https://hubsign.routinehub.services/sign"
 
     LLM_BASE_URL: str = ""
     LLM_API_KEY: str = ""
@@ -98,14 +100,31 @@ class Settings(BaseSettings):
         return (self.LLM_BASE_URL or "").rstrip("/")
 
     @property
+    def hosted_shortcut_url(self) -> str:
+        return f"{self.app_base_url}/shortcuts/Voice-Dump.shortcut"
+
+    @property
+    def hosted_share_sheet_shortcut_url(self) -> str:
+        return f"{self.app_base_url}/shortcuts/Process-Voice-Memo.shortcut"
+
+    @property
+    def shortcut_file_url(self) -> str:
+        return (self.SHORTCUT_FILE_URL or self.hosted_shortcut_url).strip()
+
+    @property
+    def shortcut_add_url(self) -> str:
+        return (self.SHORTCUT_ICLOUD_URL or self.shortcut_file_url).strip()
+
+    @property
     def shortcut_import_url(self) -> str:
-        if not self.SHORTCUT_FILE_URL:
+        url = self.shortcut_file_url
+        if not url:
             return ""
         from urllib.parse import quote
 
         return (
             "shortcuts://import-shortcut?url="
-            f"{quote(self.SHORTCUT_FILE_URL, safe='')}&name=Voice%20Dump"
+            f"{quote(url, safe='')}&name=Voice%20Dump"
         )
 
 

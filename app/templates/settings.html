@@ -7,19 +7,16 @@
   <p class="lede">{{ user.name }} · {{ user.email }}</p>
 
   {% if rotated %}
-  <p class="banner warn">Your token was rotated. Open the shortcut and update the Token import value or the token form field. Do not re-import unless you want to. The old token is dead.</p>
+  <p class="banner warn">Your token was rotated. Open the shortcut and update the Token import value or the Authorization header. Do not re-import unless you want to. The old token is dead.</p>
   {% endif %}
 
   <div class="cta-row">
-    {% if shortcut_icloud_url %}
-    <a class="btn primary" href="{{ shortcut_icloud_url }}" target="_blank" rel="noopener">Add iPhone Shortcut</a>
-    {% else %}
-    <span class="btn primary disabled">Add iPhone Shortcut</span>
-    {% endif %}
+    <a class="btn primary" href="{{ shortcut_add_url }}" target="_blank" rel="noopener">Add iPhone Shortcut</a>
     {% if shortcut_import_url %}
     <a class="btn ghost" href="{{ shortcut_import_url }}">Add via shortcuts://</a>
     {% endif %}
   </div>
+  <p class="hint">Shortcut file: <code>{{ shortcut_file_url }}</code></p>
 
   <div class="copy-grid">
     <div class="copy-card">

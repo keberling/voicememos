@@ -7,22 +7,25 @@
   <p class="lede">Tap Add iPhone Shortcut. When Shortcuts asks for Ingest URL and Token, paste the two values from this page, save, then Settings → Action Button → Shortcut → Voice Dump. Press Action Button, talk, tap to stop.</p>
 
   {% if rotated %}
-  <p class="banner warn">Your token was rotated. Open the shortcut and update the Token import value or the token form field. Do not re-import unless you want to.</p>
+  <p class="banner warn">Your token was rotated. Open the shortcut and update the Token import value or the Authorization header. Do not re-import unless you want to.</p>
   {% endif %}
 
   <div class="cta-row">
-    {% if shortcut_icloud_url %}
-    <a class="btn primary xl" href="{{ shortcut_icloud_url }}" target="_blank" rel="noopener">Add iPhone Shortcut</a>
-    {% else %}
-    <span class="btn primary xl disabled" title="Set SHORTCUT_ICLOUD_URL">Add iPhone Shortcut</span>
-    {% endif %}
+    <a class="btn primary xl" href="{{ shortcut_add_url }}" target="_blank" rel="noopener">Add iPhone Shortcut</a>
     {% if shortcut_import_url %}
     <a class="btn ghost xl" href="{{ shortcut_import_url }}">Add via shortcuts://</a>
     {% endif %}
   </div>
-  {% if not shortcut_icloud_url %}
-  <p class="hint">Set <code>SHORTCUT_ICLOUD_URL</code> to the iCloud share link for the template shortcut. Optional <code>SHORTCUT_FILE_URL</code> enables the shortcuts:// import button.</p>
-  {% endif %}
+  <p class="hint">
+    Voice Portal hosts the Voice Dump shortcut at <code>{{ shortcut_file_url }}</code>.
+    Tap Add on your iPhone, then paste Ingest URL and Token when Shortcuts asks.
+    {% if shortcut_icloud_url %}
+    The primary button uses your iCloud share link.
+    {% else %}
+    After it imports once, open the shortcut → Share → Copy iCloud Link and set <code>SHORTCUT_ICLOUD_URL</code> so everyone gets a one-tap Apple-signed add.
+    {% endif %}
+    Optional Share Sheet shortcut: <a href="{{ share_sheet_shortcut_url }}">Process Voice Memo</a>.
+  </p>
 
   <div class="copy-grid">
     <div class="copy-card">
@@ -47,14 +50,23 @@
 
   <details class="manual">
     <summary>Build it yourself in Shortcuts</summary>
+    <p><strong>Do not use Request Body: Form.</strong> Form fields are text. Recorded Audio is a file, so the variable picker will not offer it there. Use Request Body: File instead.</p>
     <ol>
       <li>Open Shortcuts. Tap +. Name it Voice Dump.</li>
-      <li>Add Record Audio. Stop Recording: On Tap. Do not save to Photos.</li>
-      <li>Add Get Contents of URL. URL = ingest URL. Method POST. Body Form. file = Recorded Audio. token = their token. source = ios-shortcut.</li>
-      <li>Show Notification from the JSON title and status.</li>
+      <li>Add Record Audio. Start Recording: Immediately. Finish Recording: On Tap. Do not save to Photos.</li>
+      <li>Add Get Contents of URL.
+        <ul>
+          <li>URL = the Ingest URL from this page.</li>
+          <li>Method POST.</li>
+          <li>Headers: add <code>Authorization</code> with value <code>Bearer </code> then insert your Token variable (or paste <code>Bearer vnp_…</code>).</li>
+          <li>Request Body: <strong>File</strong> (not Form, not JSON).</li>
+          <li>File = Recorded Audio. That picker accepts the recording.</li>
+        </ul>
+      </li>
+      <li>Get Dictionary Value key <code>title</code>, Get Dictionary Value key <code>status</code>, Show Notification from those.</li>
       <li>Settings, Action Button, that shortcut.</li>
     </ol>
-    <p>Use Shortcuts Import Questions for Ingest URL and Token so those values are filled on install. A second optional shortcut, Process Voice Memo, can receive Audio from the Share Sheet and POST the same way with file = Shortcut Input.</p>
+    <p>Use Shortcuts Import Questions for Ingest URL and Token so those values are filled on install. A second optional shortcut, Process Voice Memo, can receive Audio from the Share Sheet and POST the same way with File = Shortcut Input.</p>
   </details>
 
   <section class="trouble">
