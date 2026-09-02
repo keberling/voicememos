@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block title %}{% if selected %}{{ selected.title }} · {% endif %}{{ app_name }}{% endblock %}
+{% block body_class %}is-workspace{% endblock %}
+{% block main_class %}workspace-main{% endblock %}
+{% block content %}
+<div class="workspace {% if focus_detail %}focus-detail{% else %}focus-list{% endif %}" data-live-notes="1">
+  <aside class="notes-sidebar">
+    <div class="side-top">
+      <div class="side-title">
+        <p class="eyebrow">Notes</p>
+        {% if open_task_total %}
+        <p class="side-count">{{ open_task_total }} open</p>
+        {% endif %}
+      </div>
+      <form class="search side-search" method="get" action="/">
+        <input type="search" name="q" value="{{ q }}" placeholder="Search" aria-label="Search notes">
+        {% if active_tag %}<input type="hidden" name="tag" value="{{ active_tag }}">{% endif %}
+        {% if active_category %}<input type="hidden" name="category" value="{{ active_category }}">{% endif %}
+        <input type="hidden" name="show" value="{{ show }}">
+      </form>
+      <div class="seg">
+        <a class="{% if show == 'open' %}on{% endif %}" href="/{{ filter_qs(q=q, tag=active_tag, category=active_category, show='open') }}">Open</a>
+        <a class="{% if show == 'done' %}on{% endif %}" href="/{{ filter_qs(q=q, tag=active_tag, category=active_category, show='done') }}">Done</a>
+        <a class="{% if show == 'all' %}on{% endif %}" href="/{{ filter_qs(q=q, tag=active_tag, category=active_category, show='all') }}">All</a>
+      </div>
+    </div>
+
+    <div id="activity" class="activity side-activity" {% if not in_flight %}hidden{% endif %}>
+      {% if in_flight %}
+        {% for n in in_flight %}
+        <a href="/notes/{{ n.id }}">{{ n.title }} — {{ n.status }}</a>
+        {% endfor %}
+      {% endif %}
+    </div>
+
+    {% if all_tags %}
+    <div class="side-tags">
+      <a class="chip {% if not active_tag %}on{% endif %}" href="/{{ filter_qs(q=q, category=active_category, show=show) }}">All tags</a>
+      {% for t in all_tags %}
+      <a class="chip tag {% if active_tag == t %}on{% endif %}" href="/{{ filter_qs(q=q, tag=t, category=active_category, show=show) }}">{{ t }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if not groups %}
+    <div class="side-empty">
+      <p>{% if show == 'done' %}Nothing completed yet.{% else %}No notes yet.{% endif %}</p>
+      <a class="btn primary tiny" href="/setup">Connect iPhone</a>
+    </div>
+    {% else %}
+    <nav class="group-nav">
+      {% for group in groups %}
+      <section class="side-group">
+        <header class="side-group-head">
+          <h2>{{ group.name }}</h2>
+          <span>{{ group.open_tasks if group.open_tasks else group.note_count }}</span>
+        </header>
+        <ul>
+          {% for note in group.notes %}
+          <li>
+            <a class="side-note {% if selected and selected.id == note.id %}on{% endif %} {% if note.completed %}is-done{% endif %} {% if note.status in ['queued', 'transcribing', 'structuring'] %}busy{% endif %}" href="/notes/{{ note.id }}{{ filter_qs(q=q, tag=active_tag, category=active_category, show=show) }}">
+              <span class="side-note-title">{{ note.title }}</span>
+              <span class="side-note-meta">
+                {% set opens = namespace(n=0) %}
+                {% for item in note.action_items %}
+                  {% if not item.checked %}{% set opens.n = opens.n + 1 %}{% endif %}
+                {% endfor %}
+                {% if opens.n %}<em>{{ opens.n }}</em>{% endif %}
+                <time>{{ note.updated_at.strftime("%b %d") }}</time>
+              </span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endfor %}
+    </nav>
+    {% endif %}
+  </aside>
+
+  <section class="note-pane">
+    {% if selected %}
+    <article class="note-detail {% if selected.completed %}is-done{% endif %}" data-live-note="{{ selected.id }}" data-live-status="{{ selected.status }}">
+      <a class="pane-back" href="/{{ filter_qs(q=q, tag=active_tag, category=active_category, show=show) }}">Notes</a>
+      <div class="page-head">
+        <div>
+          <h1>{{ selected.title }}</h1>
+          <p class="meta">
+            <span class="status {{ selected.status }}">{{ selected.status }}</span>
+            {% if selected.completed %}<span class="status ready">done</span>{% endif %}
+            {% if selected.updated_from_voice %}<span class="voice-flag">Updated from voice</span>{% endif %}
+            · {{ selected.updated_at.strftime("%Y-%m-%d %H:%M UTC") }}
+          </p>
+        </div>
+        <div class="actions">
+          {% if not selected.completed and selected.status != "merged" %}
+          <form method="post" action="/notes/{{ selected.id }}/complete">
+            <button class="btn primary" type="submit">Complete</button>
+          </form>
+          {% endif %}
+          {% if selected.completed %}
+          <form method="post" action="/notes/{{ selected.id }}/reopen">
+            <button class="btn" type="submit">Reopen</button>
+          </form>
+          {% endif %}
+          {% if selected.status != "merged" %}
+          <form method="post" action="/notes/{{ selected.id }}/retry">
+            <button class="btn" type="submit">Retry</button>
+          </form>
+          {% endif %}
+          <form method="post" action="/notes/{{ selected.id }}/delete" onsubmit="return confirm('Delete this note and its audio?');">
+            <button class="btn danger" type="submit">Delete</button>
+          </form>
+        </div>
+      </div>
+
+      {% if selected.status in ['queued', 'transcribing', 'structuring'] %}
+      <p class="banner" id="live-note-banner">Working — {{ selected.status }}. This updates on its own.</p>
+      {% endif %}
+      {% if selected.error %}
+      <p class="banner error">{{ selected.error }}</p>
+      {% endif %}
+      {% if selected.warning %}
+      <p class="banner warn">{{ selected.warning }}</p>
+      {% endif %}
+      {% if selected.status == "merged" and merged_into %}
+      <p class="banner">Merged into <a href="/notes/{{ merged_into.id }}">{{ merged_into.title }}</a>.</p>
+      {% endif %}
+
+      <div class="chips">
+        {% for cat in selected.categories %}<span class="chip cat">{{ cat }}</span>{% endfor %}
+        {% for t in selected.tags %}<span class="chip tag">{{ t }}</span>{% endfor %}
+        {% if selected.entities and selected.entities.names %}
+          {% for name in selected.entities.names %}
+          <span class="chip who">{{ name }}</span>
+          {% endfor %}
+        {% endif %}
+      </div>
+
+      {% if selected.summary %}
+      <section>
+        <h2>Summary</h2>
+        <p class="summary-body">{{ selected.summary }}</p>
+      </section>
+      {% endif %}
+
+      {% if selected.action_items %}
+      <section>
+        <h2>Tasks</h2>
+        <ul class="checks" data-note-id="{{ selected.id }}">
+          {% for item in selected.action_items %}
+          <li class="{% if item.checked %}done{% endif %}">
+            <label>
+              <input type="checkbox" data-action-toggle data-note-id="{{ selected.id }}" data-index="{{ loop.index0 }}" {% if item.checked %}checked{% endif %}>
+              <span>{{ item.text }}</span>
+              {% if item.due %}<span class="pill">{{ item.due }}</span>{% endif %}
+              {% if item.project %}<span class="pill">{{ item.project }}</span>{% endif %}
+            </label>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+
+      {% if selected.lists %}
+      <section>
+        <h2>Lists</h2>
+        {% for name, items in selected.lists.items() %}
+        <div class="named-list">
+          <h3>{{ name }}</h3>
+          <ul>
+            {% for item in items %}
+            <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
+      </section>
+      {% endif %}
+
+      {% if selected.ideas %}
+      <section>
+        <h2>Ideas</h2>
+        <ul>
+          {% for idea in selected.ideas %}
+          <li>{{ idea }}</li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+
+      {% if selected.filename %}
+      <section>
+        <h2>Audio</h2>
+        <audio controls preload="none" src="/api/v1/notes/{{ selected.id }}/audio"></audio>
+      </section>
+      {% endif %}
+
+      {% if selected.transcript %}
+      <section>
+        <h2>Transcript</h2>
+        <pre class="transcript">{{ selected.transcript }}</pre>
+      </section>
+      {% endif %}
+
+      {% if selected.merge_events %}
+      <section>
+        <h2>Voice dumps in this note</h2>
+        <ol class="history">
+          {% for ev in selected.merge_events %}
+          <li>
+            <p class="when">{{ ev.created_at.strftime("%Y-%m-%d %H:%M UTC") }} · {{ ev.source }}</p>
+            {% if ev.excerpt %}<p>{{ ev.excerpt }}</p>{% endif %}
+          </li>
+          {% endfor %}
+        </ol>
+      </section>
+      {% endif %}
+    </article>
+    {% else %}
+    <div class="pane-empty">
+      <h1>{% if show == 'done' %}Nothing completed{% elif groups %}Pick a note{% else %}No notes yet{% endif %}</h1>
+      <p>{% if groups %}Choose a group on the left. Summaries and tasks open here.{% elif show == 'done' %}Check off tasks or mark a note complete.{% else %}Press the Action Button, talk, tap to stop. Related dumps land in the same group.{% endif %}</p>
+      {% if not groups %}<a class="btn primary" href="/setup">Connect your iPhone</a>{% endif %}
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

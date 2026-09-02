@@ -41,6 +41,60 @@ def _ctx(request: Request, user: User | None = None, **extra):
     return data
 
 
+def _filter_visible(serialized: list, show_mode: str) -> list:
+    visible = []
+    for n in serialized:
+        done = is_completed(n)
+        if show_mode == "open" and done:
+            continue
+        if show_mode == "done" and not done:
+            continue
+        visible.append(n)
+    return visible
+
+
+def _workspace(db: Session, user: User, *, q: str, tag: str, category: str, show: str, selected_id: str | None = None):
+    show_mode = (show or "open").strip().lower()
+    if show_mode not in {"open", "done", "all"}:
+        show_mode = "open"
+    notes = search_notes(db, user.id, q=q or None, tag=tag or None, category=category or None, include_merged=False)
+    all_notes = user_notes_query(db, user.id, include_merged=False).all()
+    tags, cats = collect_filters(all_notes)
+    serialized = [note_to_out(n) for n in notes]
+    visible = _filter_visible(serialized, show_mode)
+    selected = None
+    if selected_id:
+        selected = next((n for n in serialized if n.id == selected_id), None)
+        if selected is None:
+            raw = get_owned_note(db, user.id, selected_id)
+            if raw:
+                selected = note_to_out(raw)
+        if selected and all(n.id != selected.id for n in visible):
+            visible = [selected] + visible
+    groups = group_notes(visible)
+    open_task_total = sum(len(open_actions(n)) for n in serialized if not is_completed(n))
+    return {
+        "notes": visible,
+        "groups": groups,
+        "q": q or "",
+        "active_tag": tag or "",
+        "active_category": category or "",
+        "show": show_mode,
+        "all_tags": tags,
+        "all_categories": cats,
+        "open_task_total": open_task_total,
+        "selected": selected,
+        "focus_detail": bool(selected_id),
+        "in_flight": [
+            note_to_out(n)
+            for n in all_notes
+            if n.status in {"queued", "transcribing", "structuring"}
+        ],
+        "nav": "notes",
+        "live_notes": True,
+    }
+
+
 def _latest_note(db: Session, user_id: str) -> Note | None:
     return (
         db.query(Note)
@@ -86,46 +140,11 @@ async def dashboard(
     user: User = Depends(get_html_user),
     db: Session = Depends(get_db),
 ):
-    notes = search_notes(db, user.id, q=q, tag=tag, category=category, include_merged=False)
-    all_notes = user_notes_query(db, user.id, include_merged=False).all()
-    tags, cats = collect_filters(all_notes)
-    serialized = [note_to_out(n) for n in notes]
-    show_mode = (show or "open").strip().lower()
-    if show_mode not in {"open", "done", "all"}:
-        show_mode = "open"
-    visible = []
-    for n in serialized:
-        done = is_completed(n)
-        if show_mode == "open" and done:
-            continue
-        if show_mode == "done" and not done:
-            continue
-        visible.append(n)
-    groups = group_notes(visible)
-    open_task_total = sum(len(open_actions(n)) for n in serialized if not is_completed(n))
+    ws = _workspace(db, user, q=q or "", tag=tag or "", category=category or "", show=show or "open")
     return templates.TemplateResponse(
         request,
-        "dashboard.html",
-        _ctx(
-            request,
-            user,
-            notes=visible,
-            groups=groups,
-            q=q or "",
-            active_tag=tag or "",
-            active_category=category or "",
-            show=show_mode,
-            all_tags=tags,
-            all_categories=cats,
-            open_task_total=open_task_total,
-            in_flight=[
-                note_to_out(n)
-                for n in all_notes
-                if n.status in {"queued", "transcribing", "structuring"}
-            ],
-            nav="notes",
-            live_notes=True,
-        ),
+        "workspace.html",
+        _ctx(request, user, **ws),
     )
 
 
@@ -185,6 +204,10 @@ async def rotate_token_form(
 async def note_page(
     note_id: str,
     request: Request,
+    q: str | None = Query(default=None),
+    tag: str | None = Query(default=None),
+    category: str | None = Query(default=None),
+    show: str | None = Query(default="open"),
     user: User = Depends(get_html_user),
     db: Session = Depends(get_db),
 ):
@@ -194,18 +217,23 @@ async def note_page(
     target = None
     if note.merged_into_id:
         target = get_owned_note(db, user.id, note.merged_into_id)
+    ws = _workspace(
+        db,
+        user,
+        q=q or "",
+        tag=tag or "",
+        category=category or "",
+        show=show or "open",
+        selected_id=note_id,
+    )
     payload = note_to_out(note)
+    ws["selected"] = payload
+    ws["open_actions"] = open_actions(payload)
+    ws["merged_into"] = note_to_out(target) if target else None
     return templates.TemplateResponse(
         request,
-        "note.html",
-        _ctx(
-            request,
-            user,
-            note=payload,
-            open_actions=open_actions(payload),
-            merged_into=note_to_out(target) if target else None,
-            nav="notes",
-        ),
+        "workspace.html",
+        _ctx(request, user, **ws),
     )
 
 

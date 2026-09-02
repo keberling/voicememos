@@ -43,8 +43,9 @@ def test_dashboard_lists_groups(client, db, user_a):
     login(client, user_a)
     r = client.get("/")
     assert r.status_code == 200
-    assert "note-groups" in r.text
-    assert "note-list" in r.text
+    assert "notes-sidebar" in r.text
+    assert "side-group" in r.text
+    assert "workspace" in r.text
     assert "Paint shed" in r.text
     assert "Offer letter" in r.text
     assert ">home<" in r.text.lower() or "home" in r.text

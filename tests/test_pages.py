@@ -46,9 +46,15 @@ def test_dashboard_after_ingest(client, db, user_a):
     user_a.last_ingest_ok_at = make_note(db, user_a).updated_at
     db.add(user_a)
     db.commit()
-    make_note(db, user_a, title="Cabin trip", categories=["travel"], tags=["cabin"])
+    note = make_note(db, user_a, title="Cabin trip", categories=["travel"], tags=["cabin"])
     login(client, user_a)
     r = client.get("/")
     assert r.status_code == 200
     assert "Cabin trip" in r.text
     assert "travel" in r.text
+    assert "notes-sidebar" in r.text
+    r = client.get(f"/notes/{note.id}")
+    assert r.status_code == 200
+    assert "notes-sidebar" in r.text
+    assert "Summary" in r.text or "Cabin trip" in r.text
+    assert "note-pane" in r.text
