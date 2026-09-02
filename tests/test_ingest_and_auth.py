@@ -4,7 +4,10 @@ from tests.conftest import make_note
 def test_health(client):
     r = client.get("/health")
     assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+    body = r.json()
+    assert body["status"] == "ok"
+    assert body["llm"]["configured"] is True
+    assert body["llm"]["model"] == "test-model"
 
 
 def test_ingest_requires_token(client, user_a):

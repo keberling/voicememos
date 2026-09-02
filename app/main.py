@@ -75,7 +75,17 @@ app.include_router(shortcuts.router)
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "name": settings.APP_NAME}
+    s = get_settings()
+    return {
+        "status": "ok",
+        "name": s.APP_NAME,
+        "llm": {
+            "configured": s.llm_configured,
+            "base_url": s.llm_base_url or None,
+            "model": s.LLM_MODEL or None,
+            "stt_model": s.STT_MODEL or None,
+        },
+    }
 
 
 @app.exception_handler(HTTPException)

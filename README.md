@@ -1,6 +1,6 @@
 # Voice Portal
 
-Multi-user web app for iPhone Action Button dumps. You record anything — ideas, lists, tasks, job notes, family stuff, reminders, half-baked thoughts. Shortcuts POSTs the audio with your personal token. Voice Portal transcribes it through an OpenAI-compatible LLM router, then decides whether to merge into an existing note or create a new categorized one.
+Multi-user web app for iPhone Action Button dumps. You record anything — ideas, lists, tasks, job notes, family stuff, reminders, half-baked thoughts. Shortcuts POSTs the audio with your personal token. Voice Portal transcribes it through [LLMrouterVEX](https://github.com/keberling/LLMrouterVEX) (local Ollama + Whisper), then decides whether to merge into an existing note or create a new categorized one.
 
 Nothing is too small. Nothing is dropped. Grocery lists are one example, not the product.
 
@@ -46,14 +46,23 @@ pytest
 | `ALLOWED_EMAILS` | Optional comma list. Empty = any signed-in Microsoft user |
 | `SHORTCUT_ICLOUD_URL` | iCloud share link for the template shortcut |
 | `SHORTCUT_FILE_URL` | Optional publicly reachable `.shortcut` file |
-| `LLM_BASE_URL` | OpenAI-compatible router, include `/v1` if the router needs it |
-| `LLM_API_KEY` | Router key |
-| `LLM_MODEL` | Chat model |
-| `STT_BASE_URL` | Optional, defaults to `LLM_BASE_URL` |
+| `LLM_BASE_URL` | [LLMrouterVEX](https://github.com/keberling/LLMrouterVEX) base, e.g. `http://<router>:8080/v1` |
+| `LLM_API_KEY` | Router token (`LLMROUTER_API_TOKEN`) or any placeholder if the router has none |
+| `LLM_MODEL` | Chat model. Use `auto` to let the router pick |
+| `STT_BASE_URL` | Optional, defaults to `LLM_BASE_URL` (same router) |
 | `STT_API_KEY` | Optional, defaults to `LLM_API_KEY` |
-| `STT_MODEL` | Default `whisper-1` |
+| `STT_MODEL` | Default `whisper-1` (router aliases this to local Whisper) |
 
-Router only. Do not hardcode OpenAI, xAI, or Groq in config — point `LLM_BASE_URL` at whatever you run.
+**Local router only.** Do not point this app at OpenAI, xAI, or Groq. Chat and STT both go to LLMrouterVEX:
+
+```
+LLM_BASE_URL=http://<router-lan-or-tailscale-ip>:8080/v1
+LLM_API_KEY=local
+LLM_MODEL=auto
+STT_MODEL=whisper-1
+```
+
+Ollama cannot transcribe audio. The router must have a Whisper backend (`deploy/install-whisper.sh` on a GPU box, then register it as Kind **Whisper STT**, or set `STT_BACKEND_URL` on the router).
 
 ## Microsoft Entra
 
@@ -129,7 +138,7 @@ On Coolify you must supply:
 1. Entra app registration with the public callback URL
 2. Persistent volume for `/data` (or object storage later — not in v1)
 3. `APP_BASE_URL` HTTPS
-4. LLM router `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL`
+4. LLMrouterVEX `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODEL=auto` (Whisper STT registered on the router)
 5. `SECRET_KEY` and `SHORTCUT_ICLOUD_URL`
 6. Optional Postgres instead of SQLite
 

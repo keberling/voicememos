@@ -56,15 +56,25 @@ def _client_timeout(seconds: float) -> httpx.Timeout:
     return httpx.Timeout(connect=15.0, read=seconds, write=30.0, pool=15.0)
 
 
+def _auth_headers(api_key: str | None) -> dict[str, str]:
+    key = (api_key or "").strip()
+    if not key:
+        return {}
+    return {"Authorization": f"Bearer {key}"}
+
+
 async def transcribe_audio(path: str | Path, filename: str | None = None, settings: Settings | None = None) -> str:
     settings = settings or get_settings()
-    if not settings.stt_base_url or not settings.stt_api_key:
-        raise LLMError("STT is not configured. Set LLM_BASE_URL and LLM_API_KEY (or STT_* overrides).")
+    if not settings.stt_base_url:
+        raise LLMError(
+            "STT is not configured. Point LLM_BASE_URL at LLMrouterVEX "
+            "(include host, e.g. http://<router>:8080/v1)."
+        )
 
     audio_path = Path(path)
     name = filename or audio_path.name
     url = f"{settings.stt_base_url}/audio/transcriptions"
-    headers = {"Authorization": f"Bearer {settings.stt_api_key}"}
+    headers = _auth_headers(settings.stt_api_key)
     data = {"model": settings.STT_MODEL or "whisper-1"}
 
     content = audio_path.read_bytes()
@@ -99,8 +109,11 @@ async def structure_dump(
     settings: Settings | None = None,
 ) -> StructureResult:
     settings = settings or get_settings()
-    if not settings.llm_base_url or not settings.LLM_API_KEY or not settings.LLM_MODEL:
-        raise LLMError("LLM router is not configured. Set LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL.")
+    if not settings.llm_base_url or not settings.LLM_MODEL:
+        raise LLMError(
+            "LLM router is not configured. Set LLM_BASE_URL to LLMrouterVEX "
+            "(e.g. http://<router>:8080/v1) and LLM_MODEL (try auto)."
+        )
 
     user_payload = {
         "transcript": transcript,
@@ -115,6 +128,7 @@ async def structure_dump(
     body = {
         "model": settings.LLM_MODEL,
         "temperature": 0.1,
+        "stream": False,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
@@ -122,8 +136,8 @@ async def structure_dump(
     }
     url = f"{settings.llm_base_url}/chat/completions"
     headers = {
-        "Authorization": f"Bearer {settings.LLM_API_KEY}",
         "Content-Type": "application/json",
+        **_auth_headers(settings.LLM_API_KEY),
     }
 
     async with httpx.AsyncClient(timeout=_client_timeout(90.0)) as client:

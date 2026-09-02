@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     LLM_BASE_URL: str = ""
     LLM_API_KEY: str = ""
-    LLM_MODEL: str = ""
+    LLM_MODEL: str = "auto"
     STT_BASE_URL: str = ""
     STT_API_KEY: str = ""
     STT_MODEL: str = "whisper-1"
@@ -89,7 +89,7 @@ class Settings(BaseSettings):
 
     @property
     def stt_base_url(self) -> str:
-        return (self.STT_BASE_URL or self.LLM_BASE_URL).rstrip("/")
+        return _ensure_v1(self.STT_BASE_URL or self.LLM_BASE_URL)
 
     @property
     def stt_api_key(self) -> str:
@@ -97,7 +97,11 @@ class Settings(BaseSettings):
 
     @property
     def llm_base_url(self) -> str:
-        return (self.LLM_BASE_URL or "").rstrip("/")
+        return _ensure_v1(self.LLM_BASE_URL)
+
+    @property
+    def llm_configured(self) -> bool:
+        return bool(self.llm_base_url)
 
     @property
     def hosted_shortcut_url(self) -> str:
@@ -126,6 +130,16 @@ class Settings(BaseSettings):
             "shortcuts://import-shortcut?url="
             f"{quote(url, safe='')}&name=Voice%20Dump"
         )
+
+
+def _ensure_v1(url: str) -> str:
+    """LLMrouterVEX (and OpenAI-compatible routers) serve under /v1."""
+    cleaned = (url or "").strip().rstrip("/")
+    if not cleaned:
+        return ""
+    if cleaned.endswith("/v1"):
+        return cleaned
+    return f"{cleaned}/v1"
 
 
 @lru_cache
