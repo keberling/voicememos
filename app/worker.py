@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import SessionLocal
-from app.llm import LLMError, structure_dump, transcribe_audio
+from app.llm import LLMError, review_note, structure_dump, transcribe_audio
 from app.merge import (
     apply_structure_to_note_fields,
     excerpt,
@@ -215,6 +215,7 @@ async def _process(db: Session, note: Note) -> Note:
 
     note.raw_ai = result.raw if result.raw is not None else result.model_dump()
 
+    living = note
     if result.parse_warning:
         _finalize_create(
             db,
@@ -228,23 +229,34 @@ async def _process(db: Session, note: Note) -> Note:
             ),
             warning=result.parse_warning,
         )
-        return note
-
-    should_merge = (
-        result.action == "merge"
-        and result.confidence >= 0.6
-        and bool(result.target_note_id)
-    )
-    target = _owned_note(db, note.user_id, result.target_note_id) if should_merge else None
-    if should_merge and target is None:
-        # Invalid or cross-user id → create. Never mix users.
-        should_merge = False
-
-    if should_merge and target is not None:
-        _finalize_merge(db, source=note, target=target, result=result)
     else:
-        _finalize_create(db, note, result, warning=None)
+        should_merge = (
+            result.action == "merge"
+            and result.confidence >= 0.6
+            and bool(result.target_note_id)
+        )
+        target = _owned_note(db, note.user_id, result.target_note_id) if should_merge else None
+        if should_merge and target is None:
+            should_merge = False
+        if should_merge and target is not None:
+            _finalize_merge(db, source=note, target=target, result=result)
+            living = target
+        else:
+            _finalize_create(db, note, result, warning=None)
+
+    await _attach_review(db, living, settings)
     return note
+
+
+async def _attach_review(db: Session, note: Note, settings) -> None:
+    try:
+        sug = await review_note(note, settings)
+        sug["generated_at"] = utcnow().isoformat()
+        note.suggestions = sug
+        note.updated_at = utcnow()
+        db.commit()
+    except Exception:
+        log.exception("Review failed for %s", note.id)
 
 
 def _finalize_create(db: Session, note: Note, result: StructureResult, warning: str | None) -> None:

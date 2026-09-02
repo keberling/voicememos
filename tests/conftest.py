@@ -92,6 +92,20 @@ import pytest  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
+def quiet_review(monkeypatch):
+    async def fake_review(note, settings=None):
+        return {
+            "appropriate": False,
+            "reason": "test",
+            "review": "",
+            "next_steps": [],
+            "questions": [],
+        }
+
+    monkeypatch.setattr("app.worker.review_note", fake_review)
+
+
+@pytest.fixture(autouse=True)
 def clean_db():
     session = SessionLocal()
     try:

@@ -45,25 +45,35 @@ def init_db() -> None:
             Path(raw).expanduser().parent.mkdir(parents=True, exist_ok=True)
 
     Base.metadata.create_all(bind=engine)
-    _ensure_notes_completed_at()
+    _ensure_note_columns()
 
 
-def _ensure_notes_completed_at() -> None:
+def _ensure_note_columns() -> None:
     from sqlalchemy import inspect, text
 
     insp = inspect(engine)
     if "notes" not in insp.get_table_names():
         return
     cols = {c["name"] for c in insp.get_columns("notes")}
-    if "completed_at" in cols:
+    sqlite = settings.DATABASE_URL.startswith("sqlite")
+    wanted = []
+    if "completed_at" not in cols:
+        wanted.append(
+            "ALTER TABLE notes ADD COLUMN completed_at DATETIME"
+            if sqlite
+            else "ALTER TABLE notes ADD COLUMN completed_at TIMESTAMPTZ"
+        )
+    if "suggestions" not in cols:
+        wanted.append(
+            "ALTER TABLE notes ADD COLUMN suggestions TEXT"
+            if sqlite
+            else "ALTER TABLE notes ADD COLUMN suggestions JSONB"
+        )
+    if not wanted:
         return
-    ddl = (
-        "ALTER TABLE notes ADD COLUMN completed_at DATETIME"
-        if settings.DATABASE_URL.startswith("sqlite")
-        else "ALTER TABLE notes ADD COLUMN completed_at TIMESTAMPTZ"
-    )
     with engine.begin() as conn:
-        conn.execute(text(ddl))
+        for ddl in wanted:
+            conn.execute(text(ddl))
 
 
 def get_db() -> Generator[Session, None, None]:

@@ -27,6 +27,7 @@ def note_to_out(note: Note) -> NoteOut:
         updated_at=note.updated_at,
         completed_at=note.completed_at,
         completed=bool(note.completed_at),
+        suggestions=note.suggestions if isinstance(note.suggestions, dict) else None,
         merge_events=events,
         updated_from_voice=bool(events),
     )

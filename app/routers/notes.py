@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -155,6 +156,52 @@ def delete_note(
         except OSError:
             pass
     return None
+
+
+class AdoptIn(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+
+
+@router.post("/api/v1/notes/{note_id}/review", response_model=NoteOut)
+async def refresh_review(
+    note_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.llm import review_note
+
+    note = get_owned_note(db, user.id, note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    sug = await review_note(note)
+    sug["generated_at"] = utcnow().isoformat()
+    note.suggestions = sug
+    note.updated_at = utcnow()
+    db.commit()
+    db.refresh(note)
+    return note_to_out(note)
+
+
+@router.post("/api/v1/notes/{note_id}/suggestions/adopt", response_model=NoteOut)
+def adopt_suggestion(
+    note_id: str,
+    body: AdoptIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    note = get_owned_note(db, user.id, note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    items = [coerce_action_item(x) for x in (note.action_items or [])]
+    text = body.text.strip()
+    if text and not any((i.get("text") or "").strip().lower() == text.lower() for i in items):
+        items.append({"text": text, "due": None, "project": None, "checked": False})
+        note.action_items = items
+        note.completed_at = None
+        note.updated_at = utcnow()
+        db.commit()
+        db.refresh(note)
+    return note_to_out(note)
 
 
 @router.post("/api/v1/notes/{note_id}/retry", response_model=NoteOut)

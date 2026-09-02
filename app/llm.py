@@ -154,6 +154,104 @@ async def structure_dump(
     return parse_structure_response(content, raw=payload)
 
 
+REVIEW_PROMPT = """You review a personal voice note after it has been transcribed and structured.
+
+Decide whether extra help would actually be useful. Do not invent facts that were not in the note.
+Do not repeat action items that are already listed unless they are vague and need a sharper next step.
+
+Skip (appropriate=false) when the note is:
+- a plain shopping / packing list with nothing undecided
+- a complete reminder that already has a clear task
+- a journal dump with no decision or follow-up
+- too thin to advise on
+
+When you do advise:
+- review: 1-3 short sentences. Point out gaps, risks, or timing.
+- next_steps: concrete things the person can do next. Imperative, specific, not generic "follow up".
+- questions: only if something important is unknown.
+
+Return JSON only:
+{
+  "appropriate": true or false,
+  "reason": string,
+  "review": string,
+  "next_steps": string[],
+  "questions": string[]
+}
+"""
+
+
+async def review_note(note: Any, settings: Settings | None = None) -> dict[str, Any]:
+    settings = settings or get_settings()
+    if not settings.llm_base_url or not settings.llm_model:
+        raise LLMError("LLM router is not configured.")
+
+    payload = {
+        "title": getattr(note, "title", None),
+        "summary": getattr(note, "summary", None),
+        "categories": list(getattr(note, "categories", None) or []),
+        "tags": list(getattr(note, "tags", None) or []),
+        "lists": dict(getattr(note, "lists", None) or {}),
+        "action_items": list(getattr(note, "action_items", None) or []),
+        "ideas": list(getattr(note, "ideas", None) or []),
+        "entities": dict(getattr(note, "entities", None) or {}),
+        "transcript": (getattr(note, "transcript", None) or "")[:4000],
+    }
+    body = {
+        "model": settings.llm_model,
+        "temperature": 0.2,
+        "stream": False,
+        "messages": [
+            {"role": "system", "content": REVIEW_PROMPT},
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ],
+    }
+    url = f"{settings.llm_base_url}/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        **_auth_headers(settings.llm_api_key),
+    }
+    async with httpx.AsyncClient(timeout=_client_timeout(90.0)) as client:
+        try:
+            response = await client.post(url, headers=headers, json=body)
+        except httpx.HTTPError as exc:
+            raise LLMError(f"Review request failed: {exc}") from exc
+    if response.status_code >= 400:
+        raise LLMError(f"Review failed ({response.status_code}): {_trim(response.text)}")
+    content = _message_content(_safe_json(response.text))
+    return parse_review_response(content)
+
+
+def parse_review_response(content: str | dict | list | None) -> dict[str, Any]:
+    data: Any = content
+    if isinstance(content, str):
+        data, _ = _extract_json(content)
+    if not isinstance(data, dict):
+        return {
+            "appropriate": False,
+            "reason": "Could not parse review",
+            "review": "",
+            "next_steps": [],
+            "questions": [],
+        }
+    appropriate = data.get("appropriate")
+    if appropriate is None:
+        appropriate = bool(data.get("review") or data.get("next_steps"))
+    steps = data.get("next_steps") or data.get("suggestions") or []
+    if isinstance(steps, str):
+        steps = [steps]
+    questions = data.get("questions") or []
+    if isinstance(questions, str):
+        questions = [questions]
+    return {
+        "appropriate": bool(appropriate),
+        "reason": str(data.get("reason") or "").strip(),
+        "review": str(data.get("review") or data.get("analysis") or "").strip(),
+        "next_steps": [str(s).strip() for s in steps if str(s).strip()][:8],
+        "questions": [str(q).strip() for q in questions if str(q).strip()][:5],
+    }
+
+
 def parse_structure_response(content: str | dict | list | None, raw: Any = None) -> StructureResult:
     warning = None
     data: Any = content

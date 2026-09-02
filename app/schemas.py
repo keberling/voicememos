@@ -62,6 +62,7 @@ class NoteOut(BaseModel):
     updated_at: datetime
     completed_at: datetime | None = None
     completed: bool = False
+    suggestions: dict[str, Any] | None = None
     merge_events: list[MergeEventOut] = Field(default_factory=list)
     updated_from_voice: bool = False
 

@@ -239,6 +239,51 @@ async def note_page(
     )
 
 
+@router.post("/notes/{note_id}/review")
+async def review_form(
+    note_id: str,
+    user: User = Depends(get_html_user),
+    db: Session = Depends(get_db),
+):
+    from app.llm import review_note
+
+    note = get_owned_note(db, user.id, note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    try:
+        sug = await review_note(note)
+        sug["generated_at"] = utcnow().isoformat()
+        note.suggestions = sug
+        note.updated_at = utcnow()
+        db.commit()
+    except Exception:
+        pass
+    return RedirectResponse(f"/notes/{note_id}", status_code=303)
+
+
+@router.post("/notes/{note_id}/suggestions/adopt")
+async def adopt_form(
+    note_id: str,
+    text: str = Form(...),
+    user: User = Depends(get_html_user),
+    db: Session = Depends(get_db),
+):
+    from app.merge import coerce_action_item
+
+    note = get_owned_note(db, user.id, note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    items = [coerce_action_item(x) for x in (note.action_items or [])]
+    clean = (text or "").strip()
+    if clean and not any((i.get("text") or "").strip().lower() == clean.lower() for i in items):
+        items.append({"text": clean, "due": None, "project": None, "checked": False})
+        note.action_items = items
+        note.completed_at = None
+        note.updated_at = utcnow()
+        db.commit()
+    return RedirectResponse(f"/notes/{note_id}", status_code=303)
+
+
 @router.post("/notes/{note_id}/complete")
 async def complete_form(
     note_id: str,

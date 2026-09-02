@@ -144,6 +144,44 @@
       </section>
       {% endif %}
 
+      {% set sug = selected.suggestions or {} %}
+      <section class="suggest">
+        <div class="suggest-head">
+          <h2>Suggestions</h2>
+          <form method="post" action="/notes/{{ selected.id }}/review">
+            <button class="btn tiny" type="submit">Review again</button>
+          </form>
+        </div>
+        {% if sug.get("appropriate") and (sug.get("review") or sug.get("next_steps")) %}
+          {% if sug.get("review") %}
+          <p class="summary-body">{{ sug.review }}</p>
+          {% endif %}
+          {% if sug.get("next_steps") %}
+          <ul class="next-steps">
+            {% for step in sug.next_steps %}
+            <li>
+              <span>{{ step }}</span>
+              <form method="post" action="/notes/{{ selected.id }}/suggestions/adopt">
+                <input type="hidden" name="text" value="{{ step | e }}">
+                <button class="btn tiny" type="submit">Add task</button>
+              </form>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+          {% if sug.get("questions") %}
+          <p class="label">Open questions</p>
+          <ul>
+            {% for qn in sug.questions %}
+            <li>{{ qn }}</li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        {% else %}
+        <p class="hint">{% if sug.get("reason") %}{{ sug.reason }}{% else %}Run a review to get next steps when this note needs them.{% endif %}</p>
+        {% endif %}
+      </section>
+
       {% if selected.action_items %}
       <section>
         <h2>Tasks</h2>
