@@ -71,6 +71,8 @@ def _workspace(db: Session, user: User, *, q: str, tag: str, category: str, show
                 selected = note_to_out(raw)
         if selected and all(n.id != selected.id for n in visible):
             visible = [selected] + visible
+    if selected is None and visible:
+        selected = visible[0]
     groups = group_notes(visible)
     open_task_total = sum(len(open_actions(n)) for n in serialized if not is_completed(n))
     return {

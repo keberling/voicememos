@@ -68,13 +68,13 @@ a:hover { text-decoration: underline; }
   background: conic-gradient(from 120deg, var(--accent), var(--accent-2), var(--accent));
   box-shadow: 0 0 16px rgba(121, 227, 192, 0.6);
 }
-nav { display: flex; gap: 0.4rem; }
-nav a {
+.top nav { display: flex; gap: 0.4rem; }
+.top nav a {
   color: var(--muted);
   padding: 0.35rem 0.7rem;
   border-radius: 999px;
 }
-nav a.active, nav a:hover {
+.top nav a.active, .top nav a:hover {
   color: var(--text);
   background: var(--card-2);
   text-decoration: none;
@@ -399,18 +399,21 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(260px, 22rem) 1fr;
+  grid-template-columns: 20rem minmax(0, 1fr);
   height: 100%;
   min-height: 0;
+  width: 100%;
 }
 .notes-sidebar {
   border-right: 1px solid var(--line);
   background: #0c1018;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
 }
+.notes-sidebar ul { list-style: none; margin: 0; padding: 0; }
 .side-top { padding: 1rem 1rem 0.7rem; border-bottom: 1px solid var(--line); }
 .side-title { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6rem; }
 .side-count { margin: 0; color: var(--accent); font-size: 0.8rem; font-weight: 600; }
@@ -437,8 +440,13 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .side-activity { margin: 0.6rem 0.8rem; }
 .side-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; padding: 0.65rem 1rem; }
 .side-empty { padding: 1.2rem 1rem; color: var(--muted); }
-.group-nav { overflow: auto; flex: 1; padding: 0.4rem 0 1.5rem; }
-.side-group { margin: 0.35rem 0 0.8rem; }
+.group-nav {
+  display: block;
+  overflow: auto;
+  flex: 1;
+  padding: 0.4rem 0 1.5rem;
+}
+.side-group { display: block; margin: 0.35rem 0 0.8rem; }
 .side-group-head {
   display: flex;
   justify-content: space-between;
@@ -501,7 +509,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 }
 .note-detail, .pane-empty { padding: 1.6rem 2rem 3rem; max-width: 46rem; }
 .pane-empty { color: var(--muted); }
-.pane-empty h1 { margin-bottom: 0.6rem; }
+.pane-empty h1 {
+  font-size: 1.8rem;
+  margin-bottom: 0.6rem;
+}
 .summary-body { font-size: 1.05rem; line-height: 1.65; }
 .pane-back { display: none; color: var(--muted); font-size: 0.9rem; margin-bottom: 0.8rem; }
 
