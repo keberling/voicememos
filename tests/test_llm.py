@@ -10,12 +10,27 @@ def _settings(**kwargs) -> Settings:
         "LLM_BASE_URL": "http://router:8080/v1",
         "LLM_API_KEY": "",
         "LLM_MODEL": "auto",
+        "LLM_ROUTER_URL": "",
+        "LLM_ROUTER_API_TOKEN": "",
+        "LLM_ROUTER_MODEL": "",
+        "LM_API_KEY": "",
         "STT_BASE_URL": "",
         "STT_API_KEY": "",
         "STT_MODEL": "whisper-1",
     }
     payload.update(kwargs)
     return Settings.model_construct(**payload)
+
+
+def test_router_url_alias_is_enough():
+    settings = _settings(
+        LLM_BASE_URL="",
+        LLM_ROUTER_URL="http://172.16.22.193:8080/v1",
+        LM_API_KEY="local",
+    )
+    assert settings.llm_base_url == "http://172.16.22.193:8080/v1"
+    assert settings.stt_base_url == "http://172.16.22.193:8080/v1"
+    assert settings.llm_api_key == "local"
 
 
 def test_ensure_v1_appends_when_missing():

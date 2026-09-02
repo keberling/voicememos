@@ -109,10 +109,10 @@ async def structure_dump(
     settings: Settings | None = None,
 ) -> StructureResult:
     settings = settings or get_settings()
-    if not settings.llm_base_url or not settings.LLM_MODEL:
+    if not settings.llm_base_url or not settings.llm_model:
         raise LLMError(
-            "LLM router is not configured. Set LLM_BASE_URL to LLMrouterVEX "
-            "(e.g. http://<router>:8080/v1) and LLM_MODEL (try auto)."
+            "LLM router is not configured. Set LLM_BASE_URL or LLM_ROUTER_URL "
+            "to LLMrouterVEX (e.g. http://<router>:8080/v1) and LLM_MODEL=auto."
         )
 
     user_payload = {
@@ -126,7 +126,7 @@ async def structure_dump(
         ),
     }
     body = {
-        "model": settings.LLM_MODEL,
+        "model": settings.llm_model,
         "temperature": 0.1,
         "stream": False,
         "messages": [
@@ -137,7 +137,7 @@ async def structure_dump(
     url = f"{settings.llm_base_url}/chat/completions"
     headers = {
         "Content-Type": "application/json",
-        **_auth_headers(settings.LLM_API_KEY),
+        **_auth_headers(settings.llm_api_key),
     }
 
     async with httpx.AsyncClient(timeout=_client_timeout(90.0)) as client:

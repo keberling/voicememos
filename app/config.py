@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     LLM_BASE_URL: str = ""
     LLM_API_KEY: str = ""
     LLM_MODEL: str = "auto"
+    # Aliases used in Coolify / older env names
+    LLM_ROUTER_URL: str = ""
+    LLM_ROUTER_API_TOKEN: str = ""
+    LLM_ROUTER_MODEL: str = ""
+    LM_API_KEY: str = ""
     STT_BASE_URL: str = ""
     STT_API_KEY: str = ""
     STT_MODEL: str = "whisper-1"
@@ -89,15 +94,28 @@ class Settings(BaseSettings):
 
     @property
     def stt_base_url(self) -> str:
-        return _ensure_v1(self.STT_BASE_URL or self.LLM_BASE_URL)
+        return _ensure_v1(self.STT_BASE_URL or self.LLM_BASE_URL or self.LLM_ROUTER_URL)
+
+    @property
+    def llm_api_key(self) -> str:
+        return (
+            self.LLM_API_KEY
+            or self.LLM_ROUTER_API_TOKEN
+            or self.LM_API_KEY
+            or self.STT_API_KEY
+        )
 
     @property
     def stt_api_key(self) -> str:
-        return self.STT_API_KEY or self.LLM_API_KEY
+        return self.STT_API_KEY or self.llm_api_key
 
     @property
     def llm_base_url(self) -> str:
-        return _ensure_v1(self.LLM_BASE_URL)
+        return _ensure_v1(self.LLM_BASE_URL or self.LLM_ROUTER_URL)
+
+    @property
+    def llm_model(self) -> str:
+        return (self.LLM_MODEL or self.LLM_ROUTER_MODEL or "auto").strip() or "auto"
 
     @property
     def llm_configured(self) -> bool:

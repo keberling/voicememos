@@ -82,7 +82,7 @@ def health():
         "llm": {
             "configured": s.llm_configured,
             "base_url": s.llm_base_url or None,
-            "model": s.LLM_MODEL or None,
+            "model": s.llm_model or None,
             "stt_model": s.STT_MODEL or None,
         },
     }
