@@ -8,9 +8,10 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import get_current_user
+from app.merge import coerce_action_item
 from app.models import Note, User, utcnow
 from app.notes_query import get_owned_note, search_notes
-from app.schemas import NoteOut, NotePatch
+from app.schemas import ActionCheckIn, NoteOut, NotePatch
 from app.serialize import note_to_out
 
 router = APIRouter(tags=["notes"])
@@ -52,8 +53,79 @@ def patch_note(
     if note is None:
         raise HTTPException(status_code=404, detail="Note not found")
     data = body.model_dump(exclude_unset=True)
+    completed = data.pop("completed", None)
     for key, value in data.items():
         setattr(note, key, value)
+    if completed is True:
+        _mark_complete(note)
+    elif completed is False:
+        note.completed_at = None
+    note.updated_at = utcnow()
+    db.commit()
+    db.refresh(note)
+    return note_to_out(note)
+
+
+def _mark_complete(note: Note) -> None:
+    items = [coerce_action_item(x) for x in (note.action_items or [])]
+    for item in items:
+        item["checked"] = True
+    note.action_items = items
+    note.completed_at = utcnow()
+
+
+@router.post("/api/v1/notes/{note_id}/actions/{index}", response_model=NoteOut)
+def toggle_action(
+    note_id: str,
+    index: int,
+    body: ActionCheckIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    note = get_owned_note(db, user.id, note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    items = [coerce_action_item(x) for x in (note.action_items or [])]
+    if index < 0 or index >= len(items):
+        raise HTTPException(status_code=404, detail="Action item not found")
+    items[index]["checked"] = bool(body.checked)
+    note.action_items = items
+    if items and all(i.get("checked") for i in items):
+        note.completed_at = utcnow()
+    else:
+        note.completed_at = None
+    note.updated_at = utcnow()
+    db.commit()
+    db.refresh(note)
+    return note_to_out(note)
+
+
+@router.post("/api/v1/notes/{note_id}/complete", response_model=NoteOut)
+def complete_note(
+    note_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    note = get_owned_note(db, user.id, note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    _mark_complete(note)
+    note.updated_at = utcnow()
+    db.commit()
+    db.refresh(note)
+    return note_to_out(note)
+
+
+@router.post("/api/v1/notes/{note_id}/reopen", response_model=NoteOut)
+def reopen_note(
+    note_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    note = get_owned_note(db, user.id, note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    note.completed_at = None
     note.updated_at = utcnow()
     db.commit()
     db.refresh(note)

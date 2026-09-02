@@ -25,31 +25,54 @@ document.querySelectorAll("[data-copy]").forEach((btn) => {
   });
 });
 
-const checks = document.querySelector(".checks[data-note-id]");
-if (checks) {
-  const noteId = checks.getAttribute("data-note-id");
-  checks.querySelectorAll("input[type=checkbox]").forEach((box) => {
-    box.addEventListener("change", async () => {
-      const items = Array.from(checks.querySelectorAll("input[type=checkbox]")).map((input) => {
-        const label = input.closest("label");
-        const text = label.querySelector("span").textContent;
-        const pills = Array.from(label.querySelectorAll(".pill")).map((p) => p.textContent);
-        return {
-          text,
-          due: pills[0] || null,
-          project: pills[1] || null,
-          checked: input.checked,
-        };
-      });
-      await fetch(`/api/v1/notes/${noteId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ action_items: items }),
-      });
+document.addEventListener("change", async (event) => {
+  const box = event.target.closest("[data-action-toggle]");
+  if (!box) return;
+  const noteId = box.getAttribute("data-note-id");
+  const index = box.getAttribute("data-index");
+  const row = box.closest("li");
+  try {
+    const res = await fetch(`/api/v1/notes/${noteId}/actions/${index}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ checked: box.checked }),
     });
-  });
-}
+    if (!res.ok) throw new Error("Could not update task");
+    if (row) row.classList.toggle("done", box.checked);
+  } catch (_err) {
+    box.checked = !box.checked;
+    toast("Could not update task", "error");
+  }
+});
+
+document.addEventListener("click", async (event) => {
+  const btn = event.target.closest("[data-complete-note]");
+  if (!btn) return;
+  event.preventDefault();
+  const noteId = btn.getAttribute("data-complete-note");
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/v1/notes/${noteId}/complete`, {
+      method: "POST",
+      credentials: "same-origin",
+    });
+    if (!res.ok) throw new Error("Could not complete note");
+    const row = btn.closest(".note-row");
+    if (row) {
+      row.classList.add("is-done");
+      row.querySelectorAll("[data-action-toggle]").forEach((input) => {
+        input.checked = true;
+        input.closest("li")?.classList.add("done");
+      });
+      btn.remove();
+    }
+    toast("Marked complete", "ready");
+  } catch (_err) {
+    btn.disabled = false;
+    toast("Could not complete note", "error");
+  }
+});
 
 const STATUS_COPY = {
   queued: "Received — queued",

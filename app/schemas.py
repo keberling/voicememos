@@ -60,6 +60,8 @@ class NoteOut(BaseModel):
     source: str | None = None
     created_at: datetime
     updated_at: datetime
+    completed_at: datetime | None = None
+    completed: bool = False
     merge_events: list[MergeEventOut] = Field(default_factory=list)
     updated_from_voice: bool = False
 
@@ -73,6 +75,11 @@ class NotePatch(BaseModel):
     action_items: list[dict[str, Any]] | None = None
     ideas: list[str] | None = None
     entities: dict[str, Any] | None = None
+    completed: bool | None = None
+
+
+class ActionCheckIn(BaseModel):
+    checked: bool
 
 
 class StructureResult(BaseModel):

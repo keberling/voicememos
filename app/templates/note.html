@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ note.title }} · {{ app_name }}{% endblock %}
 {% block content %}
-<article class="page note" data-live-note="{{ note.id }}" data-live-status="{{ note.status }}">
+<article class="page note {% if note.completed %}is-done{% endif %}" data-live-note="{{ note.id }}" data-live-status="{{ note.status }}">
   <p class="crumb"><a href="/">Notes</a></p>
   <div class="page-head">
     <div>
@@ -13,9 +13,19 @@
       </p>
     </div>
     <div class="actions">
+      {% if not note.completed and note.status != "merged" %}
+      <form method="post" action="/notes/{{ note.id }}/complete">
+        <button class="btn primary" type="submit">Complete</button>
+      </form>
+      {% endif %}
+      {% if note.completed %}
+      <form method="post" action="/notes/{{ note.id }}/reopen">
+        <button class="btn" type="submit">Reopen</button>
+      </form>
+      {% endif %}
       {% if note.status != "merged" %}
       <form method="post" action="/notes/{{ note.id }}/retry">
-        <button class="btn primary" type="submit">Retry</button>
+        <button class="btn" type="submit">Retry</button>
       </form>
       {% endif %}
       <form method="post" action="/notes/{{ note.id }}/delete" onsubmit="return confirm('Delete this note and its audio?');">
@@ -70,9 +80,9 @@
     <h2>Action items</h2>
     <ul class="checks" data-note-id="{{ note.id }}">
       {% for item in note.action_items %}
-      <li>
+      <li class="{% if item.checked %}done{% endif %}">
         <label>
-          <input type="checkbox" data-index="{{ loop.index0 }}" {% if item.checked %}checked{% endif %}>
+          <input type="checkbox" data-action-toggle data-note-id="{{ note.id }}" data-index="{{ loop.index0 }}" {% if item.checked %}checked{% endif %}>
           <span>{{ item.text }}</span>
           {% if item.due %}<span class="pill">{{ item.due }}</span>{% endif %}
           {% if item.project %}<span class="pill">{{ item.project }}</span>{% endif %}

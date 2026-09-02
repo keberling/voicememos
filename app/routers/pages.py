@@ -13,6 +13,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.deps import get_html_user
 from app.models import Note, User, new_api_token, utcnow
+from app.grouping import group_notes, is_completed, open_actions
 from app.notes_query import collect_filters, get_owned_note, search_notes, user_notes_query
 from app.serialize import note_to_out
 
@@ -81,24 +82,42 @@ async def dashboard(
     q: str | None = Query(default=None),
     tag: str | None = Query(default=None),
     category: str | None = Query(default=None),
+    show: str | None = Query(default="open"),
     user: User = Depends(get_html_user),
     db: Session = Depends(get_db),
 ):
     notes = search_notes(db, user.id, q=q, tag=tag, category=category, include_merged=False)
     all_notes = user_notes_query(db, user.id, include_merged=False).all()
     tags, cats = collect_filters(all_notes)
+    serialized = [note_to_out(n) for n in notes]
+    show_mode = (show or "open").strip().lower()
+    if show_mode not in {"open", "done", "all"}:
+        show_mode = "open"
+    visible = []
+    for n in serialized:
+        done = is_completed(n)
+        if show_mode == "open" and done:
+            continue
+        if show_mode == "done" and not done:
+            continue
+        visible.append(n)
+    groups = group_notes(visible)
+    open_task_total = sum(len(open_actions(n)) for n in serialized if not is_completed(n))
     return templates.TemplateResponse(
         request,
         "dashboard.html",
         _ctx(
             request,
             user,
-            notes=[note_to_out(n) for n in notes],
+            notes=visible,
+            groups=groups,
             q=q or "",
             active_tag=tag or "",
             active_category=category or "",
+            show=show_mode,
             all_tags=tags,
             all_categories=cats,
+            open_task_total=open_task_total,
             in_flight=[
                 note_to_out(n)
                 for n in all_notes
@@ -175,17 +194,51 @@ async def note_page(
     target = None
     if note.merged_into_id:
         target = get_owned_note(db, user.id, note.merged_into_id)
+    payload = note_to_out(note)
     return templates.TemplateResponse(
         request,
         "note.html",
         _ctx(
             request,
             user,
-            note=note_to_out(note),
+            note=payload,
+            open_actions=open_actions(payload),
             merged_into=note_to_out(target) if target else None,
             nav="notes",
         ),
     )
+
+
+@router.post("/notes/{note_id}/complete")
+async def complete_form(
+    note_id: str,
+    user: User = Depends(get_html_user),
+    db: Session = Depends(get_db),
+):
+    from app.routers.notes import _mark_complete
+
+    note = get_owned_note(db, user.id, note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    _mark_complete(note)
+    note.updated_at = utcnow()
+    db.commit()
+    return RedirectResponse(f"/notes/{note_id}", status_code=303)
+
+
+@router.post("/notes/{note_id}/reopen")
+async def reopen_form(
+    note_id: str,
+    user: User = Depends(get_html_user),
+    db: Session = Depends(get_db),
+):
+    note = get_owned_note(db, user.id, note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    note.completed_at = None
+    note.updated_at = utcnow()
+    db.commit()
+    return RedirectResponse(f"/notes/{note_id}", status_code=303)
 
 
 @router.post("/notes/{note_id}/retry")

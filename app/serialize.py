@@ -25,6 +25,8 @@ def note_to_out(note: Note) -> NoteOut:
         source=note.source,
         created_at=note.created_at,
         updated_at=note.updated_at,
+        completed_at=note.completed_at,
+        completed=bool(note.completed_at),
         merge_events=events,
         updated_from_voice=bool(events),
     )

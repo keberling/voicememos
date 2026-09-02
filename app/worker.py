@@ -281,6 +281,7 @@ def _finalize_merge(db: Session, source: Note, target: Note, result: StructureRe
     target.status = "ready"
     target.error = None
     target.warning = None
+    target.completed_at = None
     target.updated_at = utcnow()
     target.merge_events.append(
         MergeEvent(
