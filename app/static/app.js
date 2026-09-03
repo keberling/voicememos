@@ -97,11 +97,39 @@ function toast(message, kind) {
   }, 5000);
 }
 
+function reviewStatus(note) {
+  const sug = note && note.suggestions;
+  return (sug && sug.status) || "";
+}
+
 function fingerprint(notes) {
   return notes
-    .map((n) => n.id + ":" + n.status)
+    .map((n) => n.id + ":" + n.status + ":" + reviewStatus(n))
     .sort()
     .join("|");
+}
+
+function paintReviewBar(note) {
+  const bar = document.querySelector("[data-review-bar]");
+  const article = document.querySelector("[data-live-note]");
+  if (!bar || !article || !note || article.getAttribute("data-live-note") !== note.id) return;
+  const st = reviewStatus(note) || "idle";
+  const labels = {
+    reviewing: "AI is reviewing this note…",
+    ready: "Reviewed",
+    skipped: "No extra steps needed",
+    error: "Review failed",
+    idle: "Waiting for AI review",
+  };
+  bar.className = "review-bar is-" + st;
+  bar.setAttribute("data-status", st);
+  const label = bar.querySelector(".review-label");
+  if (label) label.textContent = labels[st] || labels.idle;
+  const btn = document.querySelector("[data-review-box] button[type=submit]");
+  if (btn) {
+    btn.disabled = st === "reviewing";
+    btn.textContent = st === "reviewing" ? "Reviewing…" : "Review again";
+  }
 }
 
 function inFlight(notes) {
@@ -173,16 +201,22 @@ async function pollNotes() {
   const seeded = sessionStorage.getItem(SEED_KEY) === "1";
   const next = {};
   notes.forEach((n) => {
-    next[n.id] = { status: n.status, title: n.title };
+    next[n.id] = { status: n.status, title: n.title, review: reviewStatus(n) };
   });
 
   if (seeded) {
     for (const n of notes) {
       const before = prev[n.id];
+      paintReviewBar(n);
       if (!before) {
         toast((n.title || "Voice dump") + " — " + (STATUS_COPY[n.status] || n.status), n.status);
       } else if (before.status !== n.status) {
         toast((n.title || "Voice dump") + " — " + (STATUS_COPY[n.status] || n.status), n.status);
+      } else if (before.review === "reviewing" && next[n.id].review && next[n.id].review !== "reviewing") {
+        toast(
+          next[n.id].review === "ready" ? "AI review ready" : next[n.id].review === "skipped" ? "No extra steps needed" : "AI review finished",
+          next[n.id].review === "error" ? "error" : "ready"
+        );
       }
     }
   }

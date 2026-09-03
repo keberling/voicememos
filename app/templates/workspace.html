@@ -145,13 +145,31 @@
       {% endif %}
 
       {% set sug = selected.suggestions or {} %}
-      <section class="suggest">
+      {% set rstatus = sug.get("status") or ("ready" if sug.get("appropriate") else ("skipped" if sug else "")) %}
+      <section class="suggest" data-review-box>
+        <div class="review-bar is-{{ rstatus or 'idle' }}" data-review-bar data-status="{{ rstatus or 'idle' }}">
+          <span class="review-dot" aria-hidden="true"></span>
+          <span class="review-label">
+            {% if rstatus == "reviewing" %}AI is reviewing this note…
+            {% elif rstatus == "ready" %}Reviewed{% if sug.get("generated_at") %} · {{ sug.generated_at.replace("T", " ")[:16] }} UTC{% endif %}
+            {% elif rstatus == "skipped" %}No extra steps needed
+            {% elif rstatus == "error" %}Review failed
+            {% else %}Waiting for AI review
+            {% endif %}
+          </span>
+          <span class="review-track"><span class="review-fill"></span></span>
+        </div>
         <div class="suggest-head">
           <h2>Suggestions</h2>
           <form method="post" action="/notes/{{ selected.id }}/review">
-            <button class="btn tiny" type="submit">Review again</button>
+            <button class="btn tiny" type="submit" {% if rstatus == "reviewing" %}disabled{% endif %}>
+              {% if rstatus == "reviewing" %}Reviewing…{% else %}Review again{% endif %}
+            </button>
           </form>
         </div>
+        {% if rstatus == "reviewing" %}
+        <p class="hint">The local router is reading the summary and transcript. This bar updates on its own.</p>
+        {% endif %}
         {% if sug.get("appropriate") and (sug.get("review") or sug.get("next_steps")) %}
           {% if sug.get("review") %}
           <p class="summary-body">{{ sug.review }}</p>
@@ -177,7 +195,7 @@
             {% endfor %}
           </ul>
           {% endif %}
-        {% else %}
+        {% elif rstatus != "reviewing" %}
         <p class="hint">{% if sug.get("reason") %}{{ sug.reason }}{% else %}Run a review to get next steps when this note needs them.{% endif %}</p>
         {% endif %}
       </section>

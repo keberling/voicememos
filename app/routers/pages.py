@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -242,22 +242,20 @@ async def note_page(
 @router.post("/notes/{note_id}/review")
 async def review_form(
     note_id: str,
+    background_tasks: BackgroundTasks,
     user: User = Depends(get_html_user),
     db: Session = Depends(get_db),
 ):
-    from app.llm import review_note
+    from app.worker import _reviewing_payload, run_review
 
     note = get_owned_note(db, user.id, note_id)
     if note is None:
         raise HTTPException(status_code=404, detail="Note not found")
-    try:
-        sug = await review_note(note)
-        sug["generated_at"] = utcnow().isoformat()
-        note.suggestions = sug
-        note.updated_at = utcnow()
-        db.commit()
-    except Exception:
-        pass
+    prev = note.suggestions if isinstance(note.suggestions, dict) else {}
+    note.suggestions = _reviewing_payload(prev)
+    note.updated_at = utcnow()
+    db.commit()
+    background_tasks.add_task(run_review, note.id)
     return RedirectResponse(f"/notes/{note_id}", status_code=303)
 
 

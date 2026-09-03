@@ -96,6 +96,7 @@ def quiet_review(monkeypatch):
     async def fake_review(note, settings=None):
         return {
             "appropriate": False,
+            "status": "skipped",
             "reason": "test",
             "review": "",
             "next_steps": [],

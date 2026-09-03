@@ -243,8 +243,10 @@ def parse_review_response(content: str | dict | list | None) -> dict[str, Any]:
     questions = data.get("questions") or []
     if isinstance(questions, str):
         questions = [questions]
+    appropriate = bool(appropriate)
     return {
-        "appropriate": bool(appropriate),
+        "appropriate": appropriate,
+        "status": "ready" if appropriate else "skipped",
         "reason": str(data.get("reason") or "").strip(),
         "review": str(data.get("review") or data.get("analysis") or "").strip(),
         "next_steps": [str(s).strip() for s in steps if str(s).strip()][:8],

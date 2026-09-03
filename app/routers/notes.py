@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -165,20 +165,21 @@ class AdoptIn(BaseModel):
 @router.post("/api/v1/notes/{note_id}/review", response_model=NoteOut)
 async def refresh_review(
     note_id: str,
+    background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    from app.llm import review_note
+    from app.worker import _reviewing_payload, run_review
 
     note = get_owned_note(db, user.id, note_id)
     if note is None:
         raise HTTPException(status_code=404, detail="Note not found")
-    sug = await review_note(note)
-    sug["generated_at"] = utcnow().isoformat()
-    note.suggestions = sug
+    prev = note.suggestions if isinstance(note.suggestions, dict) else {}
+    note.suggestions = _reviewing_payload(prev)
     note.updated_at = utcnow()
     db.commit()
     db.refresh(note)
+    background_tasks.add_task(run_review, note.id)
     return note_to_out(note)
 
 

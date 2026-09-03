@@ -21,9 +21,11 @@ def test_group_notes_clusters_by_category():
 def test_parse_review_skips_and_extracts_steps():
     skipped = parse_review_response('{"appropriate": false, "reason": "just a grocery list"}')
     assert skipped["appropriate"] is False
+    assert skipped["status"] == "skipped"
     useful = parse_review_response(
         '{"appropriate": true, "review": "Comcast needs lead time.", "next_steps": ["Text Reid a window"], "questions": ["Is the date firm?"]}'
     )
+    assert useful["status"] == "ready"
     assert useful["appropriate"] is True
     assert "Comcast" in useful["review"]
     assert useful["next_steps"] == ["Text Reid a window"]

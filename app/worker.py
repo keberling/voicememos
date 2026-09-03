@@ -244,19 +244,45 @@ async def _process(db: Session, note: Note) -> Note:
         else:
             _finalize_create(db, note, result, warning=None)
 
-    await _attach_review(db, living, settings)
+    await run_review(living.id)
     return note
 
 
-async def _attach_review(db: Session, note: Note, settings) -> None:
+def _reviewing_payload(existing: dict | None = None) -> dict:
+    data = dict(existing or {})
+    data["status"] = "reviewing"
+    data["reason"] = "AI is reviewing this note…"
+    return data
+
+
+async def run_review(note_id: str) -> None:
+    db = SessionLocal()
     try:
-        sug = await review_note(note, settings)
-        sug["generated_at"] = utcnow().isoformat()
-        note.suggestions = sug
+        note = db.query(Note).filter(Note.id == note_id).one_or_none()
+        if note is None:
+            return
+        prev = note.suggestions if isinstance(note.suggestions, dict) else {}
+        note.suggestions = _reviewing_payload(prev)
         note.updated_at = utcnow()
         db.commit()
-    except Exception:
-        log.exception("Review failed for %s", note.id)
+        db.refresh(note)
+        try:
+            sug = await review_note(note)
+            sug["generated_at"] = utcnow().isoformat()
+            if "status" not in sug:
+                sug["status"] = "ready" if sug.get("appropriate") else "skipped"
+            note.suggestions = sug
+        except Exception as exc:
+            log.exception("Review failed for %s", note.id)
+            note.suggestions = {
+                **_reviewing_payload(prev),
+                "status": "error",
+                "reason": str(exc)[:300],
+            }
+        note.updated_at = utcnow()
+        db.commit()
+    finally:
+        db.close()
 
 
 def _finalize_create(db: Session, note: Note, result: StructureResult, warning: str | None) -> None:
