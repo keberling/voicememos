@@ -197,6 +197,7 @@ async def _process(db: Session, note: Note) -> Note:
     db.commit()
 
     forced = _owned_note(db, note.user_id, getattr(note, "force_merge_into_id", None))
+    reprocess_self = (note.source or "") == "edit"
     candidates = load_candidates(db, note)
     if forced:
         candidates = [forced] + [c for c in candidates if c.id != forced.id]
@@ -207,6 +208,7 @@ async def _process(db: Session, note: Note) -> Note:
             extra_title=None if note.title in {"Voice dump", "Untitled voice dump"} else note.title,
             extra_tags=list(note.tags or []),
             force_target_id=forced.id if forced else None,
+            reprocess_self=reprocess_self,
             settings=settings,
         )
     except Exception as exc:
@@ -234,6 +236,17 @@ async def _process(db: Session, note: Note) -> Note:
         result.target_note_id = forced.id
         _finalize_merge(db, source=note, target=forced, result=result)
         living = forced
+    elif reprocess_self:
+        if result.parse_warning:
+            result = StructureResult(
+                action="create",
+                title=note.title or "Voice dump",
+                summary=note.summary or "",
+                ideas=[note.transcript or ""],
+                parse_warning=result.parse_warning,
+                raw=result.raw,
+            )
+        _finalize_create(db, note, result, warning=result.parse_warning)
     elif result.parse_warning:
         _finalize_create(
             db,

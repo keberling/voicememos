@@ -107,6 +107,7 @@ async def structure_dump(
     extra_title: str | None = None,
     extra_tags: list[str] | None = None,
     force_target_id: str | None = None,
+    reprocess_self: bool = False,
     settings: Settings | None = None,
 ) -> StructureResult:
     settings = settings or get_settings()
@@ -126,6 +127,12 @@ async def structure_dump(
             "You MUST merge into that note. Use it as the source of truth. "
             "Fold new lists, tasks, and facts into it. Do not create a new note. "
             f"action must be merge and target_note_id must be {force_target_id}."
+        )
+    elif reprocess_self:
+        instructions = (
+            "The user edited this existing note. Rebuild title, summary, lists, "
+            "action items, categories, and tags from the transcript and current fields. "
+            "action must be create. Do not merge into a different note."
         )
 
     user_payload = {

@@ -15,6 +15,15 @@ from app.deps import get_html_user
 from app.models import Note, User, new_api_token, utcnow
 from app.grouping import group_notes, is_completed, open_actions
 from app.notes_query import collect_filters, get_owned_note, search_notes, user_notes_query
+from app.edit import (
+    format_action_items,
+    format_lines,
+    format_lists,
+    parse_action_items,
+    parse_csv,
+    parse_lines,
+    parse_lists,
+)
 from app.serialize import note_to_out
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
@@ -90,6 +99,7 @@ def _workspace(db: Session, user: User, *, q: str, tag: str, category: str, show
         "open_task_total": open_task_total,
         "selected": selected,
         "focus_detail": bool(selected_id),
+        "editing": False,
         "in_flight": [
             note_to_out(n)
             for n in all_notes
@@ -213,6 +223,7 @@ async def note_page(
     tag: str | None = Query(default=None),
     category: str | None = Query(default=None),
     show: str | None = Query(default="open"),
+    edit: bool = Query(default=False),
     user: User = Depends(get_html_user),
     db: Session = Depends(get_db),
 ):
@@ -235,11 +246,52 @@ async def note_page(
     ws["selected"] = payload
     ws["open_actions"] = open_actions(payload)
     ws["merged_into"] = note_to_out(target) if target else None
+    ws["editing"] = bool(edit) and note.status != "merged"
+    ws["edit_lists"] = format_lists(note.lists)
+    ws["edit_actions"] = format_action_items(note.action_items)
+    ws["edit_ideas"] = format_lines(note.ideas)
     return templates.TemplateResponse(
         request,
         "workspace.html",
         _ctx(request, user, **ws),
     )
+
+
+@router.post("/notes/{note_id}/edit")
+async def edit_form(
+    note_id: str,
+    title: str = Form(""),
+    summary: str = Form(""),
+    transcript: str = Form(""),
+    tags: str = Form(""),
+    categories: str = Form(""),
+    lists: str = Form(""),
+    action_items: str = Form(""),
+    ideas: str = Form(""),
+    user: User = Depends(get_html_user),
+    db: Session = Depends(get_db),
+):
+    note = get_owned_note(db, user.id, note_id)
+    if note is None:
+        raise HTTPException(status_code=404, detail="Note not found")
+    if note.status == "merged":
+        raise HTTPException(status_code=400, detail="Merged notes cannot be edited")
+    note.title = (title or "").strip() or note.title or "Voice dump"
+    note.summary = (summary or "").strip()
+    note.transcript = (transcript or "").strip()
+    note.tags = parse_csv(tags)
+    note.categories = parse_csv(categories)
+    note.lists = parse_lists(lists)
+    note.action_items = parse_action_items(action_items)
+    note.ideas = parse_lines(ideas)
+    note.source = "edit"
+    note.force_merge_into_id = None
+    note.status = "queued"
+    note.error = None
+    note.completed_at = None
+    note.updated_at = utcnow()
+    db.commit()
+    return RedirectResponse(f"/notes/{note_id}", status_code=303)
 
 
 @router.post("/notes/{note_id}/review")

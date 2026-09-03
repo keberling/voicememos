@@ -463,6 +463,37 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 0.8rem;
 }
+.edit-form {
+  display: grid;
+  gap: 0.9rem;
+  max-width: 58rem;
+}
+.edit-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.edit-form input[type="text"],
+.edit-form textarea {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.edit-form textarea { font-size: 0.95rem; line-height: 1.45; }
+.edit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.8rem;
+}
 .toasts {
   position: fixed;
   right: 1rem;

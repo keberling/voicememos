@@ -113,6 +113,7 @@
           </form>
           {% endif %}
           {% if selected.status != "merged" %}
+          <a class="btn" href="/notes/{{ selected.id }}?edit=1">Edit</a>
           <form method="post" action="/notes/{{ selected.id }}/retry">
             <button class="btn" type="submit">Retry</button>
           </form>
@@ -126,6 +127,43 @@
       {% if selected.status in ['queued', 'transcribing', 'structuring'] %}
       <p class="banner" id="live-note-banner">Working — {{ selected.status }}. This updates on its own.</p>
       {% endif %}
+      {% if editing %}
+      <form class="edit-form" method="post" action="/notes/{{ selected.id }}/edit">
+        <div class="edit-grid">
+          <label>Title
+            <input type="text" name="title" value="{{ selected.title }}">
+          </label>
+          <label>Categories
+            <input type="text" name="categories" value="{{ selected.categories | join(', ') }}" placeholder="home, family">
+          </label>
+          <label>Tags
+            <input type="text" name="tags" value="{{ selected.tags | join(', ') }}" placeholder="grocery, kids">
+          </label>
+        </div>
+        <label>Summary
+          <textarea name="summary" rows="3">{{ selected.summary or "" }}</textarea>
+        </label>
+        <label>Transcript
+          <textarea name="transcript" rows="8">{{ selected.transcript or "" }}</textarea>
+        </label>
+        <div class="edit-grid">
+          <label>Lists <span class="hint">Name: then one item per line</span>
+            <textarea name="lists" rows="8">{{ edit_lists }}</textarea>
+          </label>
+          <label>Tasks <span class="hint">One per line. Prefix [x] if done</span>
+            <textarea name="action_items" rows="8">{{ edit_actions }}</textarea>
+          </label>
+        </div>
+        <label>Ideas
+          <textarea name="ideas" rows="4">{{ edit_ideas }}</textarea>
+        </label>
+        <div class="actions">
+          <button class="btn primary" type="submit">Save and reprocess</button>
+          <a class="btn" href="/notes/{{ selected.id }}">Cancel</a>
+        </div>
+        <p class="hint">Saving queues the note. The AI will rebuild summary, tags, lists, and suggestions from your edits.</p>
+      </form>
+      {% else %}
       {% if selected.error %}
       <p class="banner error">{{ selected.error }}</p>
       {% endif %}
@@ -302,6 +340,7 @@
           {% endfor %}
         </ol>
       </section>
+      {% endif %}
       {% endif %}
     </article>
     {% else %}

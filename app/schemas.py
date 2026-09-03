@@ -72,6 +72,7 @@ class NotePatch(BaseModel):
     tags: list[str] | None = None
     categories: list[str] | None = None
     summary: str | None = None
+    transcript: str | None = None
     lists: dict[str, list[str]] | None = None
     action_items: list[dict[str, Any]] | None = None
     ideas: list[str] | None = None

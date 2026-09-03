@@ -61,6 +61,12 @@ def patch_note(
         _mark_complete(note)
     elif completed is False:
         note.completed_at = None
+    if any(k in data for k in ("transcript", "summary", "title", "lists", "ideas")):
+        note.source = "edit"
+        note.force_merge_into_id = None
+        note.status = "queued"
+        note.error = None
+        note.completed_at = None
     note.updated_at = utcnow()
     db.commit()
     db.refresh(note)
