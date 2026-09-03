@@ -102,11 +102,23 @@ function reviewStatus(note) {
   return (sug && sug.status) || "";
 }
 
-function fingerprint(notes) {
-  return notes
-    .map((n) => n.id + ":" + n.status + ":" + reviewStatus(n))
-    .sort()
-    .join("|");
+function needsReload(prev, notes) {
+  const busy = new Set(["queued", "transcribing", "structuring", "merged"]);
+  for (const n of notes) {
+    const before = prev[n.id];
+    if (!before && busy.has(n.status)) return true;
+    if (before && before.status !== n.status) return true;
+  }
+  for (const [id, before] of Object.entries(prev)) {
+    if (!notes.some((n) => n.id === id) && before.status && busy.has(before.status)) return true;
+  }
+  const article = document.querySelector("[data-live-note]");
+  if (article) {
+    const id = article.getAttribute("data-live-note");
+    const n = notes.find((x) => x.id === id);
+    if (n && prev[id] && prev[id].review === "reviewing" && reviewStatus(n) !== "reviewing") return true;
+  }
+  return false;
 }
 
 function paintReviewBar(note) {
@@ -221,27 +233,18 @@ async function pollNotes() {
     }
   }
 
-  const prevFp = fingerprint(Object.entries(prev).map(([id, v]) => ({ id, status: v.status })));
-  const nextFp = fingerprint(notes);
   sessionStorage.setItem(SNAP_KEY, JSON.stringify(next));
   sessionStorage.setItem(SEED_KEY, "1");
 
   const live = document.querySelector("[data-live-notes]");
-  if (live && seeded && prevFp !== nextFp && !reloading) {
+  const lastReload = Number(sessionStorage.getItem("vp-reload-at") || 0);
+  const cooled = Date.now() - lastReload > 5000;
+  if (live && seeded && !reloading && cooled && needsReload(prev, notes)) {
     const search = document.querySelector("input[type=search]");
     if (!search || document.activeElement !== search) {
       reloading = true;
+      sessionStorage.setItem("vp-reload-at", String(Date.now()));
       window.setTimeout(() => window.location.reload(), 800);
-    }
-  }
-
-  const notePage = document.querySelector("[data-live-note]");
-  if (notePage) {
-    const id = notePage.getAttribute("data-live-note");
-    const current = notes.find((n) => n.id === id);
-    const was = notePage.getAttribute("data-live-status");
-    if (current && current.status !== was) {
-      window.location.reload();
     }
   }
 }
