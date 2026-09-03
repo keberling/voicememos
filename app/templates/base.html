@@ -7,7 +7,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/app.css?v=6">
+  <link rel="stylesheet" href="/static/app.css?v=8">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem("vp-theme") || "night";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body class="{% block body_class %}{% endblock %}">
   {% if user %}
@@ -22,6 +30,12 @@
       <a href="/settings" class="{% if nav == 'settings' %}active{% endif %}">Settings</a>
     </nav>
     <div class="who">
+      <div class="theme-pick" data-theme-pick role="group" aria-label="Color mode">
+        <button type="button" data-theme="night" title="Night"></button>
+        <button type="button" data-theme="light" title="Light"></button>
+        <button type="button" data-theme="dusk" title="Dusk"></button>
+        <button type="button" data-theme="forest" title="Forest"></button>
+      </div>
       <span>{{ user.name or user.email }}</span>
       <a class="quiet" href="/auth/logout">Logout</a>
     </div>
@@ -31,7 +45,7 @@
     {% block content %}{% endblock %}
   </main>
   <div id="toasts" class="toasts" aria-live="polite"></div>
-  <script src="/static/app.js?v=7"></script>
+  <script src="/static/app.js?v=8"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

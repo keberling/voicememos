@@ -30,6 +30,7 @@ def test_notes_available_before_first_success(client, user_a):
     assert r.status_code == 200
     assert "Notes" in r.text
     assert "No notes yet" in r.text
+    assert "data-theme-pick" in r.text
 
 
 def test_queued_note_shows_on_dashboard(client, db, user_a):

@@ -222,8 +222,19 @@ async function pollNotes() {
       paintReviewBar(n);
       if (!before) {
         toast((n.title || "Voice dump") + " — " + (STATUS_COPY[n.status] || n.status), n.status);
+        const row = document.querySelector('.side-note[data-note-id="' + n.id + '"]');
+        if (row) {
+          row.classList.add("just-in");
+          shakeEl(row.querySelector(".side-note-title"));
+        }
       } else if (before.status !== n.status) {
         toast((n.title || "Voice dump") + " — " + (STATUS_COPY[n.status] || n.status), n.status);
+        shakeEl(document.querySelector('.side-note[data-note-id="' + n.id + '"] .side-note-title'));
+        const live = document.querySelector("[data-live-note]");
+        if (live && live.getAttribute("data-live-note") === n.id) {
+          shakeEl(live.querySelector("h1"));
+        }
+      }
       } else if (before.review === "reviewing" && next[n.id].review && next[n.id].review !== "reviewing") {
         toast(
           next[n.id].review === "ready" ? "AI review ready" : next[n.id].review === "skipped" ? "No extra steps needed" : "AI review finished",
@@ -249,7 +260,38 @@ async function pollNotes() {
   }
 }
 
+function shakeEl(el) {
+  if (!el) return;
+  el.classList.remove("shake");
+  void el.offsetWidth;
+  el.classList.add("shake");
+  el.addEventListener("animationend", () => el.classList.remove("shake"), { once: true });
+}
+
+function setupThemes() {
+  const root = document.documentElement;
+  const saved = localStorage.getItem("vp-theme") || "night";
+  root.setAttribute("data-theme", saved);
+  const pick = document.querySelector("[data-theme-pick]");
+  if (!pick) return;
+  const sync = () => {
+    pick.querySelectorAll("button[data-theme]").forEach((btn) => {
+      btn.setAttribute("aria-pressed", btn.getAttribute("data-theme") === root.getAttribute("data-theme") ? "true" : "false");
+    });
+  };
+  sync();
+  pick.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-theme]");
+    if (!btn) return;
+    const theme = btn.getAttribute("data-theme");
+    root.setAttribute("data-theme", theme);
+    localStorage.setItem("vp-theme", theme);
+    sync();
+  });
+}
+
 if (document.querySelector(".top")) {
+  setupThemes();
   pollNotes();
   window.setInterval(pollNotes, 2500);
 }

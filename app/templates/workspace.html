@@ -58,7 +58,7 @@
         <ul>
           {% for note in group.notes %}
           <li>
-            <a class="side-note {% if selected and selected.id == note.id %}on{% endif %} {% if note.completed %}is-done{% endif %} {% if note.status in ['queued', 'transcribing', 'structuring'] %}busy{% endif %}" href="/notes/{{ note.id }}{{ filter_qs(q=q, tag=active_tag, category=active_category, show=show) }}">
+            <a class="side-note {% if selected and selected.id == note.id %}on{% endif %} {% if note.completed %}is-done{% endif %} {% if note.status in ['queued', 'transcribing', 'structuring'] %}busy{% endif %}" data-note-id="{{ note.id }}" href="/notes/{{ note.id }}{{ filter_qs(q=q, tag=active_tag, category=active_category, show=show) }}">
               <span class="side-note-title">{{ note.title }}</span>
               <span class="side-note-meta">
                 {% set opens = namespace(n=0) %}
@@ -89,7 +89,7 @@
 
   <section class="note-pane">
     {% if selected %}
-    <article class="note-detail {% if selected.completed %}is-done{% endif %}" data-live-note="{{ selected.id }}" data-live-status="{{ selected.status }}">
+    <article class="note-detail {% if selected.completed %}is-done{% endif %} {% if selected.status in ['queued', 'transcribing', 'structuring'] %}is-processing{% endif %}" data-live-note="{{ selected.id }}" data-live-status="{{ selected.status }}">
       <a class="pane-back" href="/{{ filter_qs(q=q, tag=active_tag, category=active_category, show=show) }}">Notes</a>
       <div class="page-head">
         <div>
@@ -136,27 +136,32 @@
       <p class="banner">Merged into <a href="/notes/{{ merged_into.id }}">{{ merged_into.title }}</a>.</p>
       {% endif %}
 
-      <div class="add-voice">
-        <button type="button" class="hold-record add" data-hold-record data-mode="add" data-target-id="{{ selected.id }}" aria-label="Hold to add a voice dump to this note">
-          <span class="hold-orb" aria-hidden="true"></span>
-          <span class="hold-copy">
-            <strong>Add to this note</strong>
-            <em>Hold to record</em>
-          </span>
-        </button>
-        <p class="hint">Release to send. It transcribes and merges into this note.</p>
+      <div class="detail-toolbar">
+        <div>
+          <div class="chips">
+            {% for cat in selected.categories %}<span class="chip cat">{{ cat }}</span>{% endfor %}
+            {% for t in selected.tags %}<span class="chip tag">{{ t }}</span>{% endfor %}
+            {% if selected.entities and selected.entities.names %}
+              {% for name in selected.entities.names %}
+              <span class="chip who">{{ name }}</span>
+              {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+        <div class="add-voice">
+          <button type="button" class="hold-record add" data-hold-record data-mode="add" data-target-id="{{ selected.id }}" aria-label="Hold to add a voice dump to this note">
+            <span class="hold-orb" aria-hidden="true"></span>
+            <span class="hold-copy">
+              <strong>Add to this note</strong>
+              <em>Hold to record</em>
+            </span>
+          </button>
+          <p class="hint">Release to send. It transcribes and merges into this note.</p>
+        </div>
       </div>
 
-      <div class="chips">
-        {% for cat in selected.categories %}<span class="chip cat">{{ cat }}</span>{% endfor %}
-        {% for t in selected.tags %}<span class="chip tag">{{ t }}</span>{% endfor %}
-        {% if selected.entities and selected.entities.names %}
-          {% for name in selected.entities.names %}
-          <span class="chip who">{{ name }}</span>
-          {% endfor %}
-        {% endif %}
-      </div>
-
+      <div class="detail-grid">
+      <div class="detail-main">
       {% if selected.summary %}
       <section>
         <h2>Summary</h2>
@@ -164,6 +169,55 @@
       </section>
       {% endif %}
 
+      {% if selected.action_items %}
+      <section>
+        <h2>Tasks</h2>
+        <ul class="checks" data-note-id="{{ selected.id }}">
+          {% for item in selected.action_items %}
+          <li class="{% if item.checked %}done{% endif %}">
+            <label>
+              <input type="checkbox" data-action-toggle data-note-id="{{ selected.id }}" data-index="{{ loop.index0 }}" {% if item.checked %}checked{% endif %}>
+              <span>{{ item.text }}</span>
+              {% if item.due %}<span class="pill">{{ item.due }}</span>{% endif %}
+              {% if item.project %}<span class="pill">{{ item.project }}</span>{% endif %}
+            </label>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+
+      {% if selected.lists %}
+      <section>
+        <h2>Lists</h2>
+        <div class="lists-grid">
+        {% for name, items in selected.lists.items() %}
+        <div class="named-list">
+          <h3>{{ name }}</h3>
+          <ul>
+            {% for item in items %}
+            <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+
+      {% if selected.ideas %}
+      <section>
+        <h2>Ideas</h2>
+        <ul>
+          {% for idea in selected.ideas %}
+          <li>{{ idea }}</li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+      </div>
+
+      <div class="detail-aside">
       {% set sug = selected.suggestions or {} %}
       {% set rstatus = sug.get("status") or ("ready" if sug.get("appropriate") else ("skipped" if sug else "")) %}
       <section class="suggest" data-review-box>
@@ -219,51 +273,8 @@
         <p class="hint">{% if sug.get("reason") %}{{ sug.reason }}{% else %}Run a review to get next steps when this note needs them.{% endif %}</p>
         {% endif %}
       </section>
-
-      {% if selected.action_items %}
-      <section>
-        <h2>Tasks</h2>
-        <ul class="checks" data-note-id="{{ selected.id }}">
-          {% for item in selected.action_items %}
-          <li class="{% if item.checked %}done{% endif %}">
-            <label>
-              <input type="checkbox" data-action-toggle data-note-id="{{ selected.id }}" data-index="{{ loop.index0 }}" {% if item.checked %}checked{% endif %}>
-              <span>{{ item.text }}</span>
-              {% if item.due %}<span class="pill">{{ item.due }}</span>{% endif %}
-              {% if item.project %}<span class="pill">{{ item.project }}</span>{% endif %}
-            </label>
-          </li>
-          {% endfor %}
-        </ul>
-      </section>
-      {% endif %}
-
-      {% if selected.lists %}
-      <section>
-        <h2>Lists</h2>
-        {% for name, items in selected.lists.items() %}
-        <div class="named-list">
-          <h3>{{ name }}</h3>
-          <ul>
-            {% for item in items %}
-            <li>{{ item }}</li>
-            {% endfor %}
-          </ul>
-        </div>
-        {% endfor %}
-      </section>
-      {% endif %}
-
-      {% if selected.ideas %}
-      <section>
-        <h2>Ideas</h2>
-        <ul>
-          {% for idea in selected.ideas %}
-          <li>{{ idea }}</li>
-          {% endfor %}
-        </ul>
-      </section>
-      {% endif %}
+      </div>
+      </div>
 
       {% if selected.filename %}
       <section>
