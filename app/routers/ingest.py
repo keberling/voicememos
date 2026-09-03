@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
 
+from app.auth import current_user_id
 from app.config import get_settings
 from app.db import get_db
 from app.models import Note, User, new_id, utcnow
@@ -79,6 +80,7 @@ async def ingest(
     tags = request.query_params.get("tags")
     title = request.query_params.get("title")
     source = request.query_params.get("source")
+    target_note_id = request.query_params.get("target_note_id")
     data = b""
     filename = "memo.m4a"
 
@@ -96,6 +98,7 @@ async def ingest(
         tags = tags or form.get("tags")  # type: ignore[assignment]
         title = title or form.get("title")  # type: ignore[assignment]
         source = source or form.get("source")  # type: ignore[assignment]
+        target_note_id = target_note_id or form.get("target_note_id")  # type: ignore[assignment]
         upload = form.get("file")
         if isinstance(upload, UploadFile):
             data = await upload.read()
@@ -110,7 +113,14 @@ async def ingest(
         if match:
             filename = match.group(1)
 
-    user = _user_from_token(db, _extract_token(request, token if isinstance(token, str) else None, authorization))
+    raw_token = _extract_token(request, token if isinstance(token, str) else None, authorization)
+    if raw_token:
+        user = _user_from_token(db, raw_token)
+    else:
+        uid = current_user_id(request)
+        user = db.query(User).filter(User.id == uid).one_or_none() if uid else None
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
 
     if not data:
         raise HTTPException(status_code=400, detail="Empty audio file")
@@ -128,6 +138,21 @@ async def ingest(
     if tags and isinstance(tags, str):
         tag_list = [t.strip() for t in tags.split(",") if t.strip()]
 
+    force_id = None
+    if target_note_id and str(target_note_id).strip():
+        force_id = str(target_note_id).strip()
+        parent = (
+            db.query(Note)
+            .filter(Note.id == force_id, Note.user_id == user.id, Note.status != "merged")
+            .one_or_none()
+        )
+        if parent is None:
+            raise HTTPException(status_code=400, detail="target note not found")
+        if not tag_list:
+            tag_list = list(parent.tags or [])
+        if not title:
+            title = parent.title
+
     note_title = (str(title).strip() if title else "") or "Voice dump"
     note = Note(
         id=note_id,
@@ -143,6 +168,7 @@ async def ingest(
         ideas=[],
         entities={},
         source=(str(source).strip() if source else "ios-shortcut") or "ios-shortcut",
+        force_merge_into_id=force_id,
         created_at=utcnow(),
         updated_at=utcnow(),
     )

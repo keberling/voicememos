@@ -53,6 +53,8 @@ def test_dashboard_after_ingest(client, db, user_a):
     assert "Cabin trip" in r.text
     assert "travel" in r.text
     assert "notes-sidebar" in r.text
+    assert "data-hold-record" in r.text
+    assert "New note" in r.text
     r = client.get(f"/notes/{note.id}")
     assert r.status_code == 200
     assert "notes-sidebar" in r.text

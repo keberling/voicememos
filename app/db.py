@@ -69,6 +69,8 @@ def _ensure_note_columns() -> None:
             if sqlite
             else "ALTER TABLE notes ADD COLUMN suggestions JSONB"
         )
+    if "force_merge_into_id" not in cols:
+        wanted.append("ALTER TABLE notes ADD COLUMN force_merge_into_id VARCHAR(36)")
     if not wanted:
         return
     with engine.begin() as conn:

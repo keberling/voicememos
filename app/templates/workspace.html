@@ -76,6 +76,15 @@
       {% endfor %}
     </div>
     {% endif %}
+    <div class="record-dock">
+      <button type="button" class="hold-record" data-hold-record data-mode="new" aria-label="Hold to record a new note">
+        <span class="hold-orb" aria-hidden="true"></span>
+        <span class="hold-copy">
+          <strong>New note</strong>
+          <em>Hold to record</em>
+        </span>
+      </button>
+    </div>
   </aside>
 
   <section class="note-pane">
@@ -126,6 +135,17 @@
       {% if selected.status == "merged" and merged_into %}
       <p class="banner">Merged into <a href="/notes/{{ merged_into.id }}">{{ merged_into.title }}</a>.</p>
       {% endif %}
+
+      <div class="add-voice">
+        <button type="button" class="hold-record add" data-hold-record data-mode="add" data-target-id="{{ selected.id }}" aria-label="Hold to add a voice dump to this note">
+          <span class="hold-orb" aria-hidden="true"></span>
+          <span class="hold-copy">
+            <strong>Add to this note</strong>
+            <em>Hold to record</em>
+          </span>
+        </button>
+        <p class="hint">Release to send. It transcribes and merges into this note.</p>
+      </div>
 
       <div class="chips">
         {% for cat in selected.categories %}<span class="chip cat">{{ cat }}</span>{% endfor %}

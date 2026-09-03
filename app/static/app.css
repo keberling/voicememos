@@ -439,7 +439,61 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .seg a.on, .seg a:hover { color: var(--text); background: var(--card-2); text-decoration: none; }
 .side-activity { margin: 0.6rem 0.8rem; }
 .side-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; padding: 0.65rem 1rem; }
-.side-empty { padding: 1.2rem 1rem; color: var(--muted); }
+.side-empty { padding: 1.2rem 1rem; color: var(--muted); flex: 1; }
+.record-dock {
+  padding: 0.75rem 0.85rem 1rem;
+  border-top: 1px solid var(--line);
+  background: #0c1018;
+}
+.add-voice {
+  margin: 0 0 1.1rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  background: var(--card);
+}
+.hold-record {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  color: var(--text);
+  border-radius: 16px;
+  padding: 0.7rem 0.85rem;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.hold-record:hover { border-color: var(--accent); }
+.hold-record.add { background: #12181f; }
+.hold-orb {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 99px;
+  flex-shrink: 0;
+  background: radial-gradient(circle at 40% 35%, #fff, var(--accent) 42%, #0a3 80%);
+  box-shadow: 0 0 0 4px rgba(121, 227, 192, 0.15);
+}
+.hold-copy { display: grid; gap: 0.05rem; min-width: 0; }
+.hold-copy strong { font-size: 0.92rem; }
+.hold-copy em { font-style: normal; color: var(--muted); font-size: 0.78rem; }
+.hold-record.is-recording {
+  border-color: var(--danger);
+  background: rgba(239, 122, 122, 0.1);
+}
+.hold-record.is-recording .hold-orb {
+  background: radial-gradient(circle at 40% 35%, #fff, var(--danger) 45%, #4a1010 80%);
+  box-shadow: 0 0 0 6px rgba(239, 122, 122, 0.25);
+  animation: pulse 0.9s ease-in-out infinite;
+}
+.hold-record.is-recording .hold-copy em { color: var(--danger); }
+.hold-record.is-sending { opacity: 0.7; }
+.hold-record:disabled { opacity: 0.45; cursor: not-allowed; }
 .group-nav {
   display: block;
   overflow: auto;

@@ -106,6 +106,7 @@ async def structure_dump(
     *,
     extra_title: str | None = None,
     extra_tags: list[str] | None = None,
+    force_target_id: str | None = None,
     settings: Settings | None = None,
 ) -> StructureResult:
     settings = settings or get_settings()
@@ -115,15 +116,25 @@ async def structure_dump(
             "to LLMrouterVEX (e.g. http://<router>:8080/v1) and LLM_MODEL=auto."
         )
 
+    instructions = (
+        "Use existing_notes to decide merge vs create. "
+        "Only merge if this dump continues one of those notes."
+    )
+    if force_target_id:
+        instructions = (
+            f"This dump was recorded as an add-on to note {force_target_id}. "
+            "You MUST merge into that note. Use it as the source of truth. "
+            "Fold new lists, tasks, and facts into it. Do not create a new note. "
+            f"action must be merge and target_note_id must be {force_target_id}."
+        )
+
     user_payload = {
         "transcript": transcript,
         "optional_title": extra_title or None,
         "optional_tags": extra_tags or [],
         "existing_notes": candidates,
-        "instructions": (
-            "Use existing_notes to decide merge vs create. "
-            "Only merge if this dump continues one of those notes."
-        ),
+        "force_target_id": force_target_id,
+        "instructions": instructions,
     }
     body = {
         "model": settings.llm_model,

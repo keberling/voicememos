@@ -67,6 +67,7 @@ class Note(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     suggestions: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
+    force_merge_into_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
 
     user: Mapped[User] = relationship(back_populates="notes")
     merge_events: Mapped[list[MergeEvent]] = relationship(

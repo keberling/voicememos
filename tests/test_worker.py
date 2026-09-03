@@ -8,6 +8,52 @@ from app.worker import process_note
 from tests.conftest import make_note
 
 
+async def test_force_merge_ignores_create(db, user_a, tmp_path, monkeypatch):
+    target = make_note(db, user_a, title="Van conversion", categories=["vehicle"])
+    dest = tmp_path / "add.webm"
+    dest.write_bytes(b"audio")
+    note = make_note(
+        db,
+        user_a,
+        title="Van conversion",
+        status="queued",
+        transcript=None,
+        summary=None,
+        lists={},
+        action_items=[],
+        ideas=[],
+        entities={},
+        tags=[],
+        categories=[],
+        filename="add.webm",
+        audio_path=str(dest),
+        force_merge_into_id=target.id,
+    )
+
+    async def fake_transcribe(*_a, **_k):
+        return "Also get a MaxxAir fan."
+
+    async def fake_structure(*_a, **_k):
+        return StructureResult(
+            action="create",
+            title="Random",
+            summary="fan",
+            lists={"Build": ["MaxxAir fan"]},
+            confidence=0.9,
+        )
+
+    monkeypatch.setattr("app.worker.transcribe_audio", fake_transcribe)
+    monkeypatch.setattr("app.worker.structure_dump", fake_structure)
+    await process_note(note.id)
+    db.expire_all()
+    source = db.get(Note, note.id)
+    target = db.get(Note, target.id)
+    assert source.status == "merged"
+    assert source.merged_into_id == target.id
+    build = [x.lower() for x in (target.lists or {}).get("Build", [])]
+    assert any("maxxair" in x for x in build)
+
+
 async def _ingest_file(user, db, tmp_path, name="dump.m4a") -> Note:
     dest = tmp_path / name
     dest.write_bytes(b"fake-audio")

@@ -250,3 +250,146 @@ if (document.querySelector(".top")) {
   pollNotes();
   window.setInterval(pollNotes, 2500);
 }
+
+function pickMime() {
+  const types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+  if (!window.MediaRecorder) return "";
+  return types.find((t) => MediaRecorder.isTypeSupported(t)) || "";
+}
+
+function setupHoldToRecord() {
+  const buttons = document.querySelectorAll("[data-hold-record]");
+  if (!buttons.length) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    buttons.forEach((btn) => {
+      btn.disabled = true;
+      const em = btn.querySelector("em");
+      if (em) em.textContent = "Mic not available";
+    });
+    return;
+  }
+
+  let recorder = null;
+  let chunks = [];
+  let stream = null;
+  let activeBtn = null;
+  let startedAt = 0;
+  let sending = false;
+
+  function setState(btn, state) {
+    buttons.forEach((b) => {
+      b.classList.toggle("is-recording", false);
+      b.classList.toggle("is-sending", false);
+      const em = b.querySelector("em");
+      const strong = b.querySelector("strong");
+      if (!em || !strong) return;
+      if (b === btn && state === "recording") {
+        em.textContent = "Release to send";
+        strong.textContent = "Recording";
+      } else if (b === btn && state === "sending") {
+        em.textContent = "Uploading…";
+      } else {
+        em.textContent = "Hold to record";
+        strong.textContent = b.getAttribute("data-mode") === "add" ? "Add to this note" : "New note";
+      }
+    });
+    if (btn && state === "recording") btn.classList.add("is-recording");
+    if (btn && state === "sending") btn.classList.add("is-sending");
+  }
+
+  async function start(btn) {
+    if (recorder || sending) return;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (_err) {
+      toast("Microphone permission denied", "error");
+      return;
+    }
+    chunks = [];
+    const mime = pickMime();
+    recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+    recorder.ondataavailable = (ev) => {
+      if (ev.data && ev.data.size) chunks.push(ev.data);
+    };
+    recorder.start(200);
+    startedAt = Date.now();
+    activeBtn = btn;
+    setState(btn, "recording");
+  }
+
+  async function stop(send) {
+    const btn = activeBtn;
+    const rec = recorder;
+    recorder = null;
+    activeBtn = null;
+    if (!rec) return;
+    const mime = rec.mimeType || pickMime() || "audio/webm";
+    await new Promise((resolve) => {
+      rec.onstop = resolve;
+      try {
+        rec.stop();
+      } catch (_err) {
+        resolve();
+      }
+    });
+    (stream?.getTracks() || []).forEach((t) => t.stop());
+    stream = null;
+    const elapsed = Date.now() - startedAt;
+    if (!send || elapsed < 400) {
+      setState(btn, "idle");
+      if (send && elapsed < 400) toast("Hold a bit longer to record", "error");
+      return;
+    }
+    const blob = new Blob(chunks, { type: mime });
+    if (!blob.size) {
+      setState(btn, "idle");
+      toast("No audio captured", "error");
+      return;
+    }
+    sending = true;
+    setState(btn, "sending");
+    const ext = mime.includes("mp4") ? "m4a" : mime.includes("ogg") ? "ogg" : "webm";
+    const fd = new FormData();
+    fd.append("file", blob, "browser-memo." + ext);
+    fd.append("source", "browser");
+    const mode = btn.getAttribute("data-mode");
+    const target = btn.getAttribute("data-target-id");
+    if (mode === "add" && target) fd.append("target_note_id", target);
+    try {
+      const res = await fetch("/api/v1/ingest", { method: "POST", body: fd, credentials: "same-origin" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Upload failed");
+      }
+      const body = await res.json();
+      toast(mode === "add" ? "Adding to this note…" : "New note queued…", "queued");
+      if (mode !== "add" && body.id) {
+        window.setTimeout(() => {
+          window.location.href = "/notes/" + body.id;
+        }, 600);
+      }
+    } catch (err) {
+      toast(err.message || "Could not send recording", "error");
+    } finally {
+      sending = false;
+      setState(btn, "idle");
+    }
+  }
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("contextmenu", (e) => e.preventDefault());
+    btn.addEventListener("pointerdown", async (e) => {
+      if (e.button != null && e.button !== 0) return;
+      e.preventDefault();
+      btn.setPointerCapture(e.pointerId);
+      await start(btn);
+    });
+    btn.addEventListener("pointerup", (e) => {
+      e.preventDefault();
+      stop(true);
+    });
+    btn.addEventListener("pointercancel", () => stop(false));
+  });
+}
+
+setupHoldToRecord();

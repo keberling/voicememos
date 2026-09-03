@@ -1,4 +1,4 @@
-from tests.conftest import make_note
+from tests.conftest import login, make_note
 
 
 def test_health(client):
@@ -112,3 +112,42 @@ def test_users_never_see_each_other(client, db, user_a, user_b):
     audio = client.get(f"/api/v1/notes/{note_b.id}/audio", headers={"Authorization": f"Bearer {user_a.api_token}"})
     assert audio.status_code == 404
     _ = note_a
+
+
+def test_ingest_uses_session_cookie(client, user_a):
+    login(client, user_a)
+    r = client.post(
+        "/api/v1/ingest",
+        files={"file": ("memo.webm", b"webm-bytes", "audio/webm")},
+        data={"source": "browser"},
+    )
+    assert r.status_code == 202
+    assert r.json()["status"] == "queued"
+
+
+def test_ingest_pins_target_note(client, db, user_a):
+    login(client, user_a)
+    parent = make_note(db, user_a, title="Shopping list", tags=["grocery"])
+    r = client.post(
+        "/api/v1/ingest",
+        files={"file": ("memo.webm", b"webm-bytes", "audio/webm")},
+        data={"source": "browser", "target_note_id": parent.id},
+    )
+    assert r.status_code == 202
+    child_id = r.json()["id"]
+    from app.models import Note
+
+    child = db.get(Note, child_id)
+    assert child.force_merge_into_id == parent.id
+    assert child.source == "browser"
+
+
+def test_ingest_rejects_foreign_target(client, db, user_a, user_b):
+    login(client, user_a)
+    foreign = make_note(db, user_b, title="Bob list")
+    r = client.post(
+        "/api/v1/ingest",
+        files={"file": ("memo.webm", b"webm-bytes", "audio/webm")},
+        data={"source": "browser", "target_note_id": foreign.id},
+    )
+    assert r.status_code == 400
