@@ -68,20 +68,31 @@ def get_owned_note(db: Session, user_id: str, note_id: str) -> Note | None:
     )
 
 
-def collect_filters(notes: list[Note]) -> tuple[list[str], list[str]]:
+def collect_filters(notes: list) -> tuple[list[str], list[str]]:
+    """Tags/categories only from notes that still exist in this list.
+
+    Merged dumps and deleted notes are not passed in. Empty labels are ignored.
+    """
     tags: list[str] = []
     cats: list[str] = []
     seen_t: set[str] = set()
     seen_c: set[str] = set()
     for note in notes:
-        for tag in note.tags or []:
-            key = str(tag).lower()
-            if key not in seen_t:
-                seen_t.add(key)
-                tags.append(str(tag))
-        for cat in note.categories or []:
-            key = str(cat).lower()
-            if key not in seen_c:
-                seen_c.add(key)
-                cats.append(str(cat))
+        status = getattr(note, "status", None) or (note.get("status") if isinstance(note, dict) else "")
+        if status == "merged":
+            continue
+        for tag in getattr(note, "tags", None) or (note.get("tags") if isinstance(note, dict) else None) or []:
+            text = str(tag).strip()
+            key = text.lower()
+            if not text or key in seen_t:
+                continue
+            seen_t.add(key)
+            tags.append(text)
+        for cat in getattr(note, "categories", None) or (note.get("categories") if isinstance(note, dict) else None) or []:
+            text = str(cat).strip()
+            key = text.lower()
+            if not text or key in seen_c:
+                continue
+            seen_c.add(key)
+            cats.append(text)
     return tags, cats

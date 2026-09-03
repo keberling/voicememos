@@ -57,9 +57,12 @@ def _workspace(db: Session, user: User, *, q: str, tag: str, category: str, show
     show_mode = (show or "open").strip().lower()
     if show_mode not in {"open", "done", "all"}:
         show_mode = "open"
-    notes = search_notes(db, user.id, q=q or None, tag=tag or None, category=category or None, include_merged=False)
+    pool = search_notes(db, user.id, q=q or None, tag=None, category=None, include_merged=False)
     all_notes = user_notes_query(db, user.id, include_merged=False).all()
-    tags, cats = collect_filters(all_notes)
+    serialized_pool = [note_to_out(n) for n in pool]
+    visible_pool = _filter_visible(serialized_pool, show_mode)
+    tags, cats = collect_filters(visible_pool)
+    notes = search_notes(db, user.id, q=q or None, tag=tag or None, category=category or None, include_merged=False)
     serialized = [note_to_out(n) for n in notes]
     visible = _filter_visible(serialized, show_mode)
     selected = None
